@@ -1,0 +1,57 @@
+<app-arquitecto-navbar></app-arquitecto-navbar>
+
+<main class="contenedor" id="inicio">
+  <section class="bienvenida">
+    <div>
+      <p class="eyebrow">ESPACIO DE TRABAJO</p>
+      <h1>Hola, {{ usuario.nombre || 'arquitecto' }}</h1>
+      <p class="subtitulo">Aquí puedes consultar tus proyectos y revisar el avance de cada obra.</p>
+    </div>
+    <div class="resumen">
+      <div class="resumen-item"><strong>{{ proyectos.length }}</strong><span>Proyectos asignados</span></div>
+      <div class="separador"></div>
+      <div class="resumen-item"><strong>{{ avancePromedio }}%</strong><span>Avance promedio</span></div>
+    </div>
+  </section>
+
+  <section class="seccion-proyectos" id="proyectos">
+    <div class="encabezado-lista">
+      <div><h2>Mis proyectos</h2><p>Proyectos asignados a tu cuenta</p></div>
+      <label class="buscador"><span aria-hidden="true">⌕</span><input type="search" placeholder="Buscar proyecto..." [(ngModel)]="busqueda" (input)="buscar()"></label>
+    </div>
+
+    <div class="estado-carga" *ngIf="cargando"><span class="spinner"></span><p>Cargando tus proyectos...</p></div>
+    <div class="mensaje error" *ngIf="!cargando && error">{{ error }} <button type="button" (click)="cargarProyectos()">Reintentar</button></div>
+    <div class="mensaje" *ngIf="!cargando && !error && proyectos.length === 0">Aún no tienes proyectos asignados.</div>
+    <div class="mensaje" *ngIf="!cargando && !error && proyectos.length > 0 && proyectosFiltrados.length === 0">No hay proyectos que coincidan con la búsqueda.</div>
+
+    <span id="obras" class="ancla-obras"></span>
+    <div class="rejilla" *ngIf="!cargando && !error">
+      <article class="tarjeta" *ngFor="let proyecto of proyectosFiltrados">
+        <div class="tarjeta-cabecera">
+          <span class="etiqueta-estado" [ngClass]="{'completado': proyecto.estado === 'Completado', 'proceso': proyecto.estado === 'En proceso'}">{{ proyecto.estado }}</span>
+          <span class="folio">PROYECTO #{{ proyecto.id }}</span>
+        </div>
+        <h3>{{ proyecto.nombre }}</h3>
+        <p class="cliente">Cliente: <strong>{{ proyecto.cliente || 'Sin cliente indicado' }}</strong></p>
+        <p class="ubicacion" *ngIf="proyecto.ubicacion">⌖ {{ proyecto.ubicacion }}</p>
+        <div class="avance-info"><span>Avance del proyecto</span><strong>{{ proyecto.porcentaje_avance || 0 }}%</strong></div>
+        <div class="barra-avance"><span [style.width.%]="proyecto.porcentaje_avance || 0"></span></div>
+        <div class="fechas">
+          <span>Inicio <strong>{{ proyecto.fecha_inicio ? (proyecto.fecha_inicio | date:'dd/MM/yyyy') : 'Pendiente' }}</strong></span>
+          <span>Fin estimado <strong>{{ proyecto.fecha_fin ? (proyecto.fecha_fin | date:'dd/MM/yyyy') : 'Sin fecha' }}</strong></span>
+        </div>
+
+        <details class="obras" *ngIf="proyecto.obras?.length; else sinObras">
+          <summary><span>Obras relacionadas</span><span class="contador">{{ proyecto.obras.length }}</span></summary>
+          <div class="obra" *ngFor="let obra of proyecto.obras">
+            <div class="obra-titulo"><strong>{{ obra.nombre }}</strong><span>{{ obra.estado }}</span></div>
+            <div class="barra-avance barra-obra"><span [style.width.%]="obra.porcentaje_avance || 0"></span></div>
+            <small>{{ obra.porcentaje_avance || 0 }}% de avance</small>
+          </div>
+        </details>
+        <ng-template #sinObras><div class="sin-obras">Este proyecto aún no tiene obras registradas.</div></ng-template>
+      </article>
+    </div>
+  </section>
+</main>

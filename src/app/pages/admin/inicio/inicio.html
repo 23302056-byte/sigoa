@@ -1,0 +1,503 @@
+<app-admin-navbar></app-admin-navbar>
+
+<main class="inicio">
+
+  <!-- ===================================== -->
+  <!-- ESTADO DE CONEXIÓN -->
+  <!-- ===================================== -->
+
+  @if (conectado) {
+
+    <div class="modo-online">
+      Conectado a internet.
+    </div>
+
+  } @else {
+
+    <div class="modo-offline">
+      Sin conexión a internet.
+      Mostrando información guardada.
+    </div>
+
+  }
+
+
+  <!-- ===================================== -->
+  <!-- ERROR -->
+  <!-- ===================================== -->
+
+  @if (error && !cargando()) {
+
+    <div class="mensaje-error">
+      {{ error }}
+    </div>
+
+  }
+
+
+  <!-- ===================================== -->
+  <!-- CARGANDO -->
+  <!-- ===================================== -->
+
+  @if (cargando()) {
+
+    <div class="cargando">
+      Cargando información...
+    </div>
+
+  }
+
+
+  <!-- ===================================== -->
+  <!-- CONTENIDO -->
+  <!-- ===================================== -->
+
+  @if (!cargando()) {
+
+
+    <!-- ================================= -->
+    <!-- RESUMEN -->
+    <!-- ================================= -->
+
+    <section class="seccion">
+
+      <div class="tarjetas">
+
+
+        <!-- =============================== -->
+        <!-- PROYECTOS -->
+        <!-- =============================== -->
+
+        <div class="tarjeta">
+
+          <div class="icono">
+            01
+          </div>
+
+          <div class="informacion">
+
+            <span>
+              PROYECTOS
+            </span>
+
+            <strong>
+              {{ proyectos.total }}
+            </strong>
+
+            <p>
+              {{ proyectos.enProgreso }}
+              en progreso
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <!-- =============================== -->
+        <!-- OBRAS -->
+        <!-- =============================== -->
+
+        <div class="tarjeta">
+
+          <div class="icono">
+            02
+          </div>
+
+          <div class="informacion">
+
+            <span>
+              OBRAS
+            </span>
+
+            <strong>
+              {{ obras.total }}
+            </strong>
+
+            <p>
+              {{ obras.enConstruccion }}
+              en construcción
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <!-- =============================== -->
+        <!-- COTIZACIONES -->
+        <!-- =============================== -->
+
+        <div class="tarjeta">
+
+          <div class="icono">
+            03
+          </div>
+
+          <div class="informacion">
+
+            <span>
+              COTIZACIONES
+            </span>
+
+            <strong>
+              {{ cotizaciones.total }}
+            </strong>
+
+            <p>
+              {{ cotizaciones.pendientes }}
+              pendientes
+            </p>
+
+          </div>
+
+        </div>
+
+
+        <!-- =============================== -->
+        <!-- CONTRATOS -->
+        <!-- =============================== -->
+
+        <div class="tarjeta">
+
+          <div class="icono">
+            04
+          </div>
+
+          <div class="informacion">
+
+            <span>
+              CONTRATOS
+            </span>
+
+            <strong>
+              {{ contratos.total }}
+            </strong>
+
+            <p>
+              {{ contratos.activos }}
+              activos
+            </p>
+
+          </div>
+
+        </div>
+
+
+      </div>
+
+    </section>
+
+
+    <!-- ================================= -->
+    <!-- PAGOS Y AVANCE -->
+    <!-- ================================= -->
+
+    <section class="segunda-fila">
+
+
+      <!-- =============================== -->
+      <!-- PAGOS -->
+      <!-- =============================== -->
+
+      <div class="panel pagos">
+
+        <div class="panel-header">
+
+          <div>
+
+            <span class="subtitulo">
+              FINANZAS
+            </span>
+
+            <h2>
+              Pagos pendientes
+            </h2>
+
+          </div>
+
+          <span class="numero-pendientes">
+
+            {{ pagos.pendientes }}
+            pendientes
+
+          </span>
+
+        </div>
+
+
+        <div class="monto">
+
+          <span>
+            Monto pendiente
+          </span>
+
+          <strong>
+            {{ formatoDinero(pagos.montoPendiente) }}
+          </strong>
+
+        </div>
+
+
+        <div class="barra">
+
+          <div
+            class="progreso"
+            [style.width.%]="
+              pagos.pendientes > 0 ? 100 : 0
+            "
+          ></div>
+
+        </div>
+
+
+        <p class="descripcion">
+
+          Existen pagos pendientes
+          de seguimiento administrativo.
+
+        </p>
+
+      </div>
+
+
+
+      <!-- =============================== -->
+      <!-- AVANCE -->
+      <!-- =============================== -->
+
+      <div class="panel avance">
+
+        <div class="panel-header">
+
+          <div>
+
+            <span class="subtitulo">
+              PROYECTOS
+            </span>
+
+            <h2>
+              Avance de obras
+            </h2>
+
+          </div>
+
+        </div>
+
+
+        <div class="avance-contenido">
+
+
+          <div class="circulo">
+
+            <strong>
+              {{ formatoPorcentaje(avancePromedio) }}
+            </strong>
+
+            <span>
+              promedio
+            </span>
+
+          </div>
+
+
+          <div class="avance-info">
+
+            <p>
+
+              Avance promedio de las obras
+              actualmente registradas.
+
+            </p>
+
+
+            <div class="mini-dato">
+
+              <span>
+                Obras registradas
+              </span>
+
+              <strong>
+                {{ obras.total }}
+              </strong>
+
+            </div>
+
+
+            <div class="mini-dato">
+
+              <span>
+                En construcción
+              </span>
+
+              <strong>
+                {{ obras.enConstruccion }}
+              </strong>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+    </section>
+
+
+
+    <!-- ================================= -->
+    <!-- ACCIONES RÁPIDAS -->
+    <!-- SOLO CON INTERNET -->
+    <!-- ================================= -->
+
+    @if (conectado) {
+
+      <section class="actividad">
+
+        <div class="titulo-seccion">
+
+          <div>
+
+            <span class="subtitulo">
+              ADMINISTRACIÓN
+            </span>
+
+            <h2>
+              Acciones rápidas
+            </h2>
+
+          </div>
+
+        </div>
+
+
+        <div class="acciones">
+
+
+          <!-- ============================= -->
+          <!-- PROYECTO -->
+          <!-- ============================= -->
+
+          <a
+            routerLink="/admin/proyectos"
+            class="accion"
+          >
+
+            <span>
+              +
+            </span>
+
+            <div>
+
+              <strong>
+                Nuevo proyecto
+              </strong>
+
+              <small>
+                Registrar un nuevo proyecto
+              </small>
+
+            </div>
+
+          </a>
+
+
+
+          <!-- ============================= -->
+          <!-- OBRA -->
+          <!-- ============================= -->
+
+          <a
+            routerLink="/admin/obras"
+            class="accion"
+          >
+
+            <span>
+              +
+            </span>
+
+            <div>
+
+              <strong>
+                Nueva obra
+              </strong>
+
+              <small>
+                Agregar una obra al sistema
+              </small>
+
+            </div>
+
+          </a>
+
+
+
+          <!-- ============================= -->
+          <!-- COTIZACIÓN -->
+          <!-- ============================= -->
+
+          <a
+            routerLink="/admin/cotizaciones"
+            class="accion"
+          >
+
+            <span>
+              +
+            </span>
+
+            <div>
+
+              <strong>
+                Nueva cotización
+              </strong>
+
+              <small>
+                Crear una cotización
+              </small>
+
+            </div>
+
+          </a>
+
+
+
+          <!-- ============================= -->
+          <!-- CONTRATO -->
+          <!-- ============================= -->
+
+          <a
+            routerLink="/admin/contratos"
+            class="accion"
+          >
+
+            <span>
+              +
+            </span>
+
+            <div>
+
+              <strong>
+                Nuevo contrato
+              </strong>
+
+              <small>
+                Registrar un contrato
+              </small>
+
+            </div>
+
+          </a>
+
+
+        </div>
+
+      </section>
+
+    }
+
+
+  }
+
+</main>

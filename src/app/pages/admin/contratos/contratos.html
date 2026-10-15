@@ -1,0 +1,91 @@
+<app-admin-navbar></app-admin-navbar>
+
+<main class="contratos-container">
+  <header class="encabezado">
+    <div><h1>Contratos</h1><p class="contexto-proyecto" *ngIf="proyectoFiltro">Proyecto: {{ proyectoFiltro }} <button type="button" (click)="volverAProyecto()">Volver a proyectos</button></p></div>
+    <button class="btn-nuevo" type="button" (click)="nuevoContrato()" [disabled]="!conectado">Nuevo contrato</button>
+  </header>
+
+  <div class="barra-herramientas">
+    <input type="search" placeholder="Buscar contrato..." [(ngModel)]="busqueda" (input)="filtrar()">
+    <span>{{ contratosFiltrados.length }} contratos</span>
+  </div>
+
+  <section class="contratos-grid" *ngIf="!cargando && !errorCarga && contratosFiltrados.length">
+    <article class="contrato-card" *ngFor="let contrato of contratosFiltrados">
+      <header class="card-header">
+        <div>
+          <span class="numero">{{ contrato.numero_contrato }}</span>
+          <h2>{{ contrato.proyecto }}</h2>
+          <p>{{ contrato.cliente }}</p>
+        </div>
+        <span class="estado" [class.activo]="contrato.estado === 'Activo'" [class.finalizado]="contrato.estado === 'Finalizado'" [class.cancelado]="contrato.estado === 'Cancelado'">{{ contrato.estado }}</span>
+      </header>
+
+      <div class="fechas">
+        <div><small>Firma</small><span>{{ contrato.fecha_firma ? (contrato.fecha_firma | date:'dd/MM/yyyy') : 'Sin fecha' }}</span></div>
+        <div><small>Vigencia</small><span>{{ contrato.fecha_inicio ? (contrato.fecha_inicio | date:'dd/MM/yyyy') : 'Sin inicio' }} – {{ contrato.fecha_fin ? (contrato.fecha_fin | date:'dd/MM/yyyy') : 'Sin fin' }}</span></div>
+      </div>
+
+      <div class="monto"><span>Monto</span><strong>{{ formatoMoneda(contrato.monto) }}</strong></div>
+
+      <div class="acciones">
+        <button class="btn-ver" (click)="verContrato(contrato)">Ver</button>
+        <button class="btn-pdf" (click)="descargarPdf(contrato)">PDF</button>
+        <button class="btn-editar" (click)="editarContrato(contrato)" [class.bloqueado]="!conectado">Editar</button>
+        <button class="btn-eliminar" (click)="eliminarContrato(contrato)" [class.bloqueado]="!conectado">Eliminar</button>
+      </div>
+    </article>
+  </section>
+
+  <div *ngIf="cargando" class="mensaje-lista">Cargando contratos...</div>
+  <div *ngIf="!cargando && errorCarga" class="mensaje-lista error-lista">{{ errorCarga }}</div>
+  <div *ngIf="!cargando && !errorCarga && contratosFiltrados.length === 0" class="mensaje-lista">No se encontraron contratos</div>
+</main>
+
+<div class="modal-fondo" *ngIf="mostrarModal" (click)="cerrarModal()">
+  <section class="modal" (click)="$event.stopPropagation()">
+    <header class="modal-header">
+      <h2>{{ creandoContrato ? 'Nuevo contrato' : (modoEdicion ? 'Editar contrato' : 'Información del contrato') }}</h2>
+      <button class="cerrar" type="button" (click)="cerrarModal()">×</button>
+    </header>
+
+    <div class="modal-body">
+      <div class="campo">
+        <label>Proyecto</label>
+        <select *ngIf="modoEdicion; else proyectoLectura" [(ngModel)]="contratoSeleccionado.id_proyecto" [disabled]="!conectado">
+          <option [ngValue]="0" disabled>Selecciona un proyecto</option>
+          <option *ngFor="let proyecto of proyectosDisponibles" [ngValue]="proyecto.id">{{ proyecto.nombre }}</option>
+        </select>
+        <ng-template #proyectoLectura><input [ngModel]="contratoSeleccionado.proyecto" readonly></ng-template>
+      </div>
+
+      <div class="fila">
+        <div class="campo"><label>Número de contrato</label><input [(ngModel)]="contratoSeleccionado.numero_contrato" [readonly]="!modoEdicion || !conectado"></div>
+        <div class="campo">
+          <label>Estado</label>
+          <select [(ngModel)]="contratoSeleccionado.estado" [disabled]="!modoEdicion || !conectado">
+            <option *ngFor="let estado of estados" [value]="estado">{{ estado }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="campo"><label>Monto</label><input type="number" min="0" step="0.01" [(ngModel)]="contratoSeleccionado.monto" [readonly]="!modoEdicion || !conectado"></div>
+
+      <div class="fila">
+        <div class="campo"><label>Fecha de firma</label><input type="date" [(ngModel)]="contratoSeleccionado.fecha_firma" [disabled]="!modoEdicion || !conectado"></div>
+        <div class="campo"><label>Fecha de inicio</label><input type="date" [(ngModel)]="contratoSeleccionado.fecha_inicio" [disabled]="!modoEdicion || !conectado"></div>
+      </div>
+      <div class="campo"><label>Fecha de fin</label><input type="date" [(ngModel)]="contratoSeleccionado.fecha_fin" [disabled]="!modoEdicion || !conectado"></div>
+
+      <div class="campo"><label>Archivo (ruta o nombre)</label><input [(ngModel)]="contratoSeleccionado.archivo" [readonly]="!modoEdicion || !conectado"></div>
+      <div class="campo"><label>Observaciones</label><textarea [(ngModel)]="contratoSeleccionado.observaciones" [readonly]="!modoEdicion || !conectado"></textarea></div>
+    </div>
+
+    <footer class="modal-footer">
+      <button class="btn-cancelar" type="button" (click)="cerrarModal()">Cerrar</button>
+      <button class="btn-pdf" type="button" (click)="descargarPdf()">Descargar PDF</button>
+      <button *ngIf="modoEdicion" class="btn-guardar" type="button" (click)="guardarCambios()" [disabled]="!conectado || guardando">{{ creandoContrato ? 'Crear contrato' : 'Guardar cambios' }}</button>
+    </footer>
+  </section>
+</div>

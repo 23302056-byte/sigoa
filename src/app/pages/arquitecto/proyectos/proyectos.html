@@ -1,0 +1,47 @@
+<app-arquitecto-navbar></app-arquitecto-navbar>
+
+<main class="pagina">
+  <section class="encabezado">
+    <div><p class="eyebrow">GESTIÓN DE TRABAJO</p><h1>Mis proyectos</h1><p>Consulta los proyectos asignados a tu cuenta y el avance de sus obras.</p></div>
+    <button class="actualizar" type="button" (click)="cargarProyectos()" [disabled]="cargando">↻ Actualizar</button>
+  </section>
+
+  <section class="resumen">
+    <div><span>PROYECTOS ASIGNADOS</span><strong>{{ proyectos.length }}</strong></div>
+    <div><span>OBRAS RELACIONADAS</span><strong>{{ totalObras }}</strong></div>
+    <div><span>EN PROGRESO</span><strong>{{ proyectosEnProgreso }}</strong></div>
+  </section>
+
+  <section class="listado">
+    <div class="barra-filtros">
+      <div><h2>Listado de proyectos</h2><p>{{ proyectosFiltrados.length }} resultados</p></div>
+      <div class="controles">
+        <input type="search" placeholder="Buscar por nombre, cliente o ubicación" [(ngModel)]="busqueda" (input)="aplicarFiltros()">
+        <select [(ngModel)]="filtroEstado" (change)="aplicarFiltros()" aria-label="Filtrar por estado">
+          <option>Todos</option><option>En proceso</option><option>Pendiente</option><option>Completado</option><option>Pausado</option><option>Cancelado</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="estado" *ngIf="cargando">Cargando proyectos asignados...</div>
+    <div class="estado error" *ngIf="!cargando && error">{{ error }} <button type="button" (click)="cargarProyectos()">Reintentar</button></div>
+    <div class="estado" *ngIf="!cargando && !error && proyectos.length === 0">No tienes proyectos asignados actualmente.</div>
+    <div class="estado" *ngIf="!cargando && !error && proyectos.length && !proyectosFiltrados.length">No hay proyectos que coincidan con los filtros.</div>
+
+    <div class="rejilla" *ngIf="!cargando && !error">
+      <article class="proyecto" *ngFor="let proyecto of proyectosFiltrados">
+        <div class="cabecera-tarjeta"><span class="estado-proyecto" [ngClass]="{'completado':proyecto.estado==='Completado','en-progreso':proyecto.estado==='En proceso'}">{{ proyecto.estado }}</span><small>PROYECTO #{{ proyecto.id }}</small></div>
+        <h3>{{ proyecto.nombre }}</h3>
+        <p class="descripcion" *ngIf="proyecto.descripcion">{{ proyecto.descripcion }}</p>
+        <div class="datos-proyecto"><div><span>Cliente</span><strong>{{ proyecto.cliente || 'Sin cliente registrado' }}</strong></div><div><span>Ubicación</span><strong>{{ proyecto.ubicacion || 'Sin ubicación registrada' }}</strong></div></div>
+        <div class="avance"><div><span>Avance general</span><strong>{{ proyecto.porcentaje_avance || 0 }}%</strong></div><div class="barra"><span [style.width.%]="proyecto.porcentaje_avance || 0"></span></div></div>
+        <div class="fechas"><span>Inicio<strong>{{ proyecto.fecha_inicio ? (proyecto.fecha_inicio | date:'dd/MM/yyyy') : 'Pendiente' }}</strong></span><span>Fin estimado<strong>{{ proyecto.fecha_fin ? (proyecto.fecha_fin | date:'dd/MM/yyyy') : 'Sin fecha' }}</strong></span></div>
+        <details class="obras">
+          <summary>Obras del proyecto <b>{{ proyecto.obras?.length || 0 }}</b></summary>
+          <div class="obra" *ngFor="let obra of proyecto.obras"><div><strong>{{ obra.nombre }}</strong><span>{{ obra.estado }}</span></div><div class="barra obra-barra"><span [style.width.%]="obra.porcentaje_avance || 0"></span></div><small>{{ obra.porcentaje_avance || 0 }}% de avance</small></div>
+          <p class="sin-obras" *ngIf="!proyecto.obras?.length">Este proyecto todavía no tiene obras registradas.</p>
+        </details>
+      </article>
+    </div>
+  </section>
+</main>

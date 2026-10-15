@@ -1,0 +1,18 @@
+<app-admin-navbar></app-admin-navbar>
+<main class="pagina">
+  <header class="encabezado"><div><h1>Pagos</h1><p *ngIf="!proyectoFiltro">Administra los pagos registrados para cada proyecto.</p><p class="contexto-proyecto" *ngIf="proyectoFiltro">Proyecto: {{ proyectoFiltro }} <button type="button" (click)="volverAProyecto()">Volver a proyectos</button></p></div><button class="primario" (click)="nuevo()">Registrar pago</button></header>
+  <div class="herramientas"><input type="search" placeholder="Buscar pago, proyecto o cliente..." [(ngModel)]="busqueda" (input)="filtrar()"><span>{{ pagosFiltrados.length }} pagos</span></div>
+  <section class="grid" *ngIf="!cargando && !error && pagosFiltrados.length">
+    <article class="tarjeta" *ngFor="let pago of pagosFiltrados"><header><div><small>{{ pago.fecha | date:'dd/MM/yyyy' }}</small><h2>{{ pago.concepto }}</h2><p>{{ pago.proyecto }} · {{ pago.cliente }}</p></div><span class="estado" [class.pagado]="pago.estado === 'Pagado'" [class.cancelado]="pago.estado === 'Cancelado'">{{ pago.estado }}</span></header>
+      <div class="datos"><span>Método: <b>{{ pago.metodo_pago }}</b></span><span *ngIf="pago.referencia">Referencia: {{ pago.referencia }}</span></div><strong class="monto">{{ moneda(pago.monto) }}</strong><footer><button (click)="ver(pago)">Ver</button><button class="primario" [class.bloqueado]="!conectado" (click)="editar(pago)">Editar</button><button class="oscuro" [class.bloqueado]="!conectado" (click)="eliminar(pago)">Eliminar</button></footer>
+    </article>
+  </section>
+  <div class="mensaje" *ngIf="cargando">Cargando pagos...</div><div class="mensaje error" *ngIf="!cargando && error">{{ error }}</div><div class="mensaje" *ngIf="!cargando && !error && !pagosFiltrados.length">No hay pagos registrados.</div>
+</main>
+<div class="fondo" *ngIf="modal" (click)="cerrar()"><section class="modal" (click)="$event.stopPropagation()"><header><h2>{{ seleccionado.id ? (editando ? 'Editar pago' : 'Detalle del pago') : 'Registrar pago' }}</h2><button class="cerrar" (click)="cerrar()">×</button></header><div class="cuerpo">
+  <label>Proyecto<select [(ngModel)]="seleccionado.id_proyecto" [disabled]="!editando || !!idProyectoFiltro"><option [ngValue]="0">Selecciona un proyecto</option><option *ngFor="let p of proyectosDisponibles" [ngValue]="p.id">{{ p.nombre }}</option></select></label>
+  <div class="fila"><label>Concepto<input [(ngModel)]="seleccionado.concepto" [readonly]="!editando"></label><label>Fecha<input type="date" [(ngModel)]="seleccionado.fecha" [disabled]="!editando"></label></div>
+  <div class="fila"><label>Monto<input type="number" min="0" step="0.01" [(ngModel)]="seleccionado.monto" [readonly]="!editando"></label><label>Método<select [(ngModel)]="seleccionado.metodo_pago" [disabled]="!editando"><option *ngFor="let m of metodos">{{ m }}</option></select></label></div>
+  <div class="fila"><label>Referencia<input [(ngModel)]="seleccionado.referencia" [readonly]="!editando"></label><label>Estado<select [(ngModel)]="seleccionado.estado" [disabled]="!editando"><option *ngFor="let e of estados">{{ e }}</option></select></label></div>
+  <label>Observaciones<textarea [(ngModel)]="seleccionado.observaciones" [readonly]="!editando"></textarea></label>
+  </div><footer><button (click)="cerrar()">Cerrar</button><button class="primario" *ngIf="editando" [disabled]="guardando" (click)="guardar()">{{ guardando ? 'Guardando...' : 'Guardar pago' }}</button></footer></section></div>

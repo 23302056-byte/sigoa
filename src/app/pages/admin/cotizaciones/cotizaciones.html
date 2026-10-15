@@ -1,0 +1,126 @@
+<app-admin-navbar></app-admin-navbar>
+
+<main class="cotizaciones-container">
+  <header class="encabezado">
+    <div><h1>Cotizaciones</h1><p class="contexto-proyecto" *ngIf="proyectoFiltro">Proyecto: {{ proyectoFiltro }} <button type="button" (click)="volverAProyecto()">Volver a proyectos</button></p></div>
+    <button class="btn-nueva" type="button" (click)="nuevaCotizacion()" [disabled]="!conectado">Crear cotización</button>
+  </header>
+
+  <div class="barra-herramientas">
+    <input type="search" placeholder="Buscar cotización..." [(ngModel)]="busqueda" (input)="filtrar()">
+    <span>{{ cotizacionesFiltradas.length }} cotizaciones</span>
+  </div>
+
+  <section class="cotizaciones-grid" *ngIf="!cargando && !errorCarga && cotizacionesFiltradas.length">
+    <article class="cotizacion-card" *ngFor="let cotizacion of cotizacionesFiltradas">
+      <header class="card-header">
+        <div>
+          <span class="folio">{{ cotizacion.folio }}</span>
+          <h2>{{ cotizacion.proyecto }}</h2>
+          <p>{{ cotizacion.cliente }}</p>
+        </div>
+        <span class="estado" [class.aceptada]="cotizacion.estado === 'Aceptada'" [class.rechazada]="cotizacion.estado === 'Rechazada'" [class.enviada]="cotizacion.estado === 'Enviada'">{{ cotizacion.estado }}</span>
+      </header>
+
+      <div class="fechas">
+        <div><small>Fecha</small><span>{{ cotizacion.fecha | date:'dd/MM/yyyy' }}</span></div>
+        <div><small>Vigencia</small><span>{{ cotizacion.vigencia ? (cotizacion.vigencia | date:'dd/MM/yyyy') : 'Sin vigencia' }}</span></div>
+      </div>
+
+      <div class="total"><span>Total</span><strong>{{ formatoMoneda(cotizacion.total) }}</strong></div>
+
+      <div class="acciones">
+        <button class="btn-ver" (click)="verCotizacion(cotizacion)">Ver</button>
+        <button class="btn-pdf" (click)="descargarPdf(cotizacion)">PDF</button>
+        <button class="btn-editar" (click)="editarCotizacion(cotizacion)" [class.bloqueado]="!conectado">Editar</button>
+        <button class="btn-eliminar" (click)="eliminarCotizacion(cotizacion)" [class.bloqueado]="!conectado">Eliminar</button>
+      </div>
+    </article>
+  </section>
+
+  <div *ngIf="cargando" class="mensaje-lista">Cargando cotizaciones...</div>
+  <div *ngIf="!cargando && errorCarga" class="mensaje-lista error-lista">{{ errorCarga }}</div>
+  <div *ngIf="!cargando && !errorCarga && cotizacionesFiltradas.length === 0" class="mensaje-lista">No se encontraron cotizaciones</div>
+</main>
+
+<div class="modal-fondo" *ngIf="mostrarModal" (click)="cerrarModal()">
+  <section class="modal" (click)="$event.stopPropagation()">
+    <header class="modal-header">
+      <h2>{{ creandoCotizacion ? 'Crear cotización' : (modoEdicion ? 'Editar cotización' : 'Información de la cotización') }}</h2>
+      <button class="cerrar" type="button" (click)="cerrarModal()">×</button>
+    </header>
+
+    <div class="modal-body">
+      <div class="campo">
+        <label>Proyecto</label>
+        <select *ngIf="modoEdicion; else proyectoLectura" [(ngModel)]="cotizacionSeleccionada.id_proyecto" [disabled]="!conectado">
+          <option [ngValue]="0" disabled>Selecciona un proyecto</option>
+          <option *ngFor="let proyecto of proyectosDisponibles" [ngValue]="proyecto.id">{{ proyecto.nombre }}</option>
+        </select>
+        <ng-template #proyectoLectura><input [ngModel]="cotizacionSeleccionada.proyecto" readonly></ng-template>
+      </div>
+
+      <div class="fila">
+        <div class="campo"><label>Folio</label><input [(ngModel)]="cotizacionSeleccionada.folio" [readonly]="!modoEdicion || !conectado"></div>
+        <div class="campo">
+          <label>Estado</label>
+          <select [(ngModel)]="cotizacionSeleccionada.estado" [disabled]="!modoEdicion || !conectado">
+            <option *ngFor="let estado of estados" [value]="estado">{{ estado }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="fila">
+        <div class="campo"><label>Fecha</label><input type="date" [(ngModel)]="cotizacionSeleccionada.fecha" [disabled]="!modoEdicion || !conectado"></div>
+        <div class="campo"><label>Vigencia</label><input type="date" [(ngModel)]="cotizacionSeleccionada.vigencia" [disabled]="!modoEdicion || !conectado"></div>
+      </div>
+
+      <div class="campo"><label>Observaciones</label><textarea [(ngModel)]="cotizacionSeleccionada.observaciones" [readonly]="!modoEdicion || !conectado"></textarea></div>
+
+      <h3 class="titulo-detalles">Conceptos</h3>
+      <div class="editor-detalles" *ngIf="creandoCotizacion">
+        <article class="detalle-editor" *ngFor="let detalle of cotizacionSeleccionada.detalles; let i = index">
+          <div class="fila">
+            <div class="campo"><label>Concepto</label><input [(ngModel)]="detalle.concepto" [ngModelOptions]="{standalone: true}" maxlength="255" placeholder="Ej. Materiales"></div>
+            <div class="campo"><label>Unidad</label><input [(ngModel)]="detalle.unidad" [ngModelOptions]="{standalone: true}" maxlength="30" placeholder="Pieza, m², servicio..."></div>
+          </div>
+          <div class="campo"><label>Descripción</label><input [(ngModel)]="detalle.descripcion" [ngModelOptions]="{standalone: true}" placeholder="Descripción opcional"></div>
+          <div class="fila">
+            <div class="campo"><label>Cantidad</label><input type="number" min="0.01" step="0.01" [(ngModel)]="detalle.cantidad" [ngModelOptions]="{standalone: true}" (ngModelChange)="calcularTotales()"></div>
+            <div class="campo"><label>Precio unitario</label><input type="number" min="0" step="0.01" [(ngModel)]="detalle.precio_unitario" [ngModelOptions]="{standalone: true}" (ngModelChange)="calcularTotales()"></div>
+            <div class="campo"><label>Importe</label><input [value]="formatoMoneda(detalle.importe)" readonly></div>
+            <button class="btn-quitar-detalle" type="button" (click)="quitarDetalle(i)" [disabled]="cotizacionSeleccionada.detalles.length <= 1" aria-label="Quitar concepto">Quitar</button>
+          </div>
+        </article>
+        <button class="btn-agregar-detalle" type="button" (click)="agregarDetalle()">+ Agregar concepto</button>
+      </div>
+      <div class="detalles-vacios" *ngIf="!creandoCotizacion && cotizacionSeleccionada.detalles.length === 0">Esta cotización no tiene conceptos registrados.</div>
+      <div class="tabla-detalles" *ngIf="!creandoCotizacion && cotizacionSeleccionada.detalles.length">
+        <table>
+          <thead><tr><th>Concepto</th><th>Cantidad</th><th>Precio</th><th>Importe</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let detalle of cotizacionSeleccionada.detalles">
+              <td><strong>{{ detalle.concepto }}</strong><small *ngIf="detalle.descripcion">{{ detalle.descripcion }}</small></td>
+              <td>{{ detalle.cantidad }} {{ detalle.unidad }}</td>
+              <td>{{ formatoMoneda(detalle.precio_unitario) }}</td>
+              <td>{{ formatoMoneda(detalle.importe) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="campo campo-iva" *ngIf="creandoCotizacion"><label>IVA (%)</label><input type="number" min="0" max="100" step="0.01" [(ngModel)]="porcentajeIva" (ngModelChange)="calcularTotales()"></div>
+      <div class="resumen-montos">
+        <div><span>Subtotal</span><strong>{{ formatoMoneda(cotizacionSeleccionada.subtotal) }}</strong></div>
+        <div><span>IVA</span><strong>{{ formatoMoneda(cotizacionSeleccionada.iva) }}</strong></div>
+        <div class="monto-total"><span>Total</span><strong>{{ formatoMoneda(cotizacionSeleccionada.total) }}</strong></div>
+      </div>
+    </div>
+
+    <footer class="modal-footer">
+      <button class="btn-cancelar" type="button" (click)="cerrarModal()">Cerrar</button>
+      <button class="btn-pdf" type="button" (click)="descargarPdf()">Descargar PDF</button>
+      <button *ngIf="modoEdicion" class="btn-guardar" type="button" (click)="guardarCambios()" [disabled]="!conectado || guardando">{{ guardando ? 'Guardando...' : (creandoCotizacion ? 'Crear cotización' : 'Guardar cambios') }}</button>
+    </footer>
+  </section>
+</div>

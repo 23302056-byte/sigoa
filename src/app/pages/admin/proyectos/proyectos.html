@@ -1,0 +1,362 @@
+<app-admin-navbar></app-admin-navbar>
+
+<main class="proyectos-container">
+
+    <div class="encabezado encabezado-acciones">
+        <h1>Proyectos</h1>
+        <div class="acciones-principales">
+            <button class="btn-crear-proyecto" type="button" [class.bloqueado]="!conectado" (click)="nuevoProyecto()">Crear proyecto</button>
+        </div>
+    </div>
+
+
+    <div class="barra-herramientas">
+
+        <div class="buscador">
+
+            <input
+                type="text"
+                placeholder="Buscar proyecto..."
+                [(ngModel)]="busqueda"
+                (input)="buscar()"
+            >
+
+        </div>
+
+        <div class="total">
+
+            {{ proyectosFiltrados.length }} proyectos
+
+        </div>
+
+    </div>
+
+
+    <section class="proyectos-grid" *ngIf="!cargando && !errorCarga && proyectosFiltrados.length">
+        <article class="proyecto-card" *ngFor="let proyecto of proyectosFiltrados">
+            <div class="card-encabezado">
+                <div>
+                    <h2>{{ proyecto.nombre }}</h2>
+                    <p class="cliente">{{ proyecto.cliente || 'Sin cliente' }}</p>
+                </div>
+                <span
+                    class="estado"
+                    [class.completado]="proyecto.estado === 'Completado'"
+                    [class.proceso]="proyecto.estado === 'En proceso'"
+                    [class.pendiente]="proyecto.estado === 'Pendiente'"
+                >{{ proyecto.estado }}</span>
+            </div>
+
+            <p class="descripcion" *ngIf="proyecto.descripcion">{{ proyecto.descripcion }}</p>
+
+            <dl class="datos-proyecto">
+                <div>
+                    <dt>Ubicación</dt>
+                    <dd>{{ proyecto.ubicacion || 'Sin ubicación' }}</dd>
+                </div>
+                <div>
+                    <dt>Fecha de inicio</dt>
+                    <dd>{{ proyecto.fecha_inicio ? (proyecto.fecha_inicio | date:'dd/MM/yyyy') : 'Sin fecha' }}</dd>
+                </div>
+            </dl>
+
+            <div class="acciones">
+                <button class="btn-ver" (click)="verProyecto(proyecto)">Ver</button>
+                <details class="menu-proyecto">
+                    <summary>Administrar <span aria-hidden="true">⌄</span></summary>
+                    <div class="menu-proyecto-opciones">
+                        <button type="button" (click)="abrirRegistrosProyecto(proyecto, 'obras')">Obras <span>{{ proyecto.obras?.length || 0 }}</span></button>
+                        <button type="button" (click)="abrirRegistrosProyecto(proyecto, 'cotizaciones')">Cotizaciones</button>
+                        <button type="button" (click)="abrirRegistrosProyecto(proyecto, 'contratos')">Contratos</button>
+                        <button type="button" (click)="abrirRegistrosProyecto(proyecto, 'pagos')">Pagos</button>
+                        <hr>
+                        <button type="button" (click)="editarProyecto(proyecto)" [disabled]="!conectado">Editar proyecto</button>
+                        <button class="accion-eliminar" type="button" (click)="eliminarProyecto(proyecto)" [disabled]="!conectado">Eliminar proyecto</button>
+                    </div>
+                </details>
+            </div>
+        </article>
+    </section>
+
+    <div *ngIf="cargando" class="mensaje-lista">Cargando proyectos...</div>
+    <div *ngIf="!cargando && errorCarga" class="mensaje-lista error-lista">{{ errorCarga }}</div>
+    <div *ngIf="!cargando && !errorCarga && proyectosFiltrados.length === 0" class="mensaje-lista">
+        No se encontraron proyectos
+    </div>
+
+</main>
+
+
+<!-- ======================================
+     MODAL
+======================================= -->
+
+<div
+    class="modal-fondo"
+    *ngIf="mostrarModal"
+    (click)="cerrarModal()"
+>
+
+    <div
+        class="modal"
+        (click)="$event.stopPropagation()"
+    >
+
+        <div class="modal-header">
+
+            <h2 *ngIf="creandoProyecto">Crear proyecto</h2>
+            <h2 *ngIf="!creandoProyecto">
+
+                {{
+                    modoEdicion
+                        ? 'Editar proyecto'
+                        : 'Información del proyecto'
+                }}
+
+            </h2>
+
+
+            <button
+                class="cerrar"
+                (click)="cerrarModal()"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <div class="modal-body">
+
+
+            <div class="campo">
+
+                <label>
+                    Nombre del proyecto
+                </label>
+
+                <input
+                    type="text"
+                    [(ngModel)]="proyectoSeleccionado.nombre"
+                    [readonly]="!modoEdicion || !conectado"
+                >
+
+            </div>
+
+
+            <div class="campo">
+
+                <label>
+                    Descripción
+                </label>
+
+                <textarea
+                    [(ngModel)]="proyectoSeleccionado.descripcion"
+                    [readonly]="!modoEdicion || !conectado"
+                ></textarea>
+
+            </div>
+
+
+            <div class="fila">
+
+
+                <div class="campo">
+
+                    <label>
+                        Cliente
+                    </label>
+
+                    <select
+                        *ngIf="modoEdicion; else clienteSoloLectura"
+                        [(ngModel)]="proyectoSeleccionado.id_cliente"
+                        [disabled]="!conectado"
+                    >
+                        <option [ngValue]="undefined">Selecciona un cliente</option>
+                        <option *ngFor="let cliente of clientes" [ngValue]="cliente.id">
+                            {{ cliente.nombre }}
+                        </option>
+                    </select>
+                    <ng-template #clienteSoloLectura>
+                        <input type="text" [ngModel]="proyectoSeleccionado.cliente" readonly>
+                    </ng-template>
+
+                </div>
+
+
+                <div class="campo">
+
+                    <label>
+                        Ubicación
+                    </label>
+
+                    <input
+                        type="text"
+                        [(ngModel)]="proyectoSeleccionado.ubicacion"
+                        [readonly]="!modoEdicion || !conectado"
+                    >
+
+                </div>
+
+
+            </div>
+
+            <div class="campo">
+                <label>Arquitecto responsable</label>
+                <select
+                    *ngIf="modoEdicion; else arquitectoSoloLectura"
+                    [(ngModel)]="proyectoSeleccionado.id_arquitecto"
+                    [disabled]="!conectado"
+                >
+                    <option [ngValue]="null">Sin asignar</option>
+                    <option *ngFor="let arquitecto of arquitectos" [ngValue]="arquitecto.id">
+                        {{ arquitecto.nombre }}
+                    </option>
+                </select>
+                <ng-template #arquitectoSoloLectura>
+                    <input type="text" [ngModel]="proyectoSeleccionado.arquitecto || 'Sin asignar'" readonly>
+                </ng-template>
+            </div>
+
+            <div class="fila">
+
+
+                <div class="campo">
+
+                    <label>
+                        Estado
+                    </label>
+
+                    <select
+                        [(ngModel)]="proyectoSeleccionado.estado"
+                        [disabled]="!modoEdicion || !conectado"
+                    >
+
+                        <option value="Pendiente">
+                            Pendiente
+                        </option>
+
+                        <option value="En proceso">
+                            En proceso
+                        </option>
+
+                        <option value="Completado">
+                            Completado
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <div class="campo">
+
+                    <label>
+                        Fecha de inicio
+                    </label>
+
+                    <input
+                        type="date"
+                        [(ngModel)]="proyectoSeleccionado.fecha_inicio"
+                        [disabled]="!modoEdicion || !conectado"
+                    >
+
+                </div>
+
+
+            </div>
+
+
+            <div class="campo">
+
+                <label>
+                    Fecha de finalización
+                </label>
+
+                <input
+                    type="date"
+                    [(ngModel)]="proyectoSeleccionado.fecha_fin"
+                    [disabled]="!modoEdicion || !conectado"
+                >
+
+            </div>
+
+
+        </div>
+
+
+        <div class="modal-footer">
+
+
+            <button
+                class="btn-cancelar"
+                (click)="cerrarModal()"
+            >
+                Cerrar
+            </button>
+
+
+            <button
+                *ngIf="modoEdicion"
+                class="btn-guardar"
+                (click)="guardarCambios()"
+                [class.bloqueado]="!conectado || guardando"
+            >
+                {{ creandoProyecto ? 'Crear proyecto' : 'Guardar cambios' }}
+            </button>
+
+
+        </div>
+
+    </div>
+
+</div>
+
+<div class="modal-fondo" *ngIf="mostrarModalObra" (click)="cerrarModalObra()">
+    <section class="modal" (click)="$event.stopPropagation()">
+        <header class="modal-header">
+            <h2>{{ modoEdicionObra ? (obraNueva.id ? 'Editar obra' : 'Crear obra') : 'Obra del proyecto' }}</h2>
+            <button class="cerrar" type="button" (click)="cerrarModalObra()">×</button>
+        </header>
+        <div class="modal-body">
+            <div class="obra-proyecto-vinculado"><small>Proyecto relacionado</small><strong>{{ proyectoObraSeleccionado?.nombre }}</strong></div>
+            <section class="obras-proyecto-lista" *ngIf="obrasDelProyecto.length">
+                <h3>Obras de este proyecto</h3>
+                <article class="obra-proyecto-opcion" *ngFor="let obra of obrasDelProyecto">
+                    <header><strong>{{ obra.nombre }}</strong><span>{{ obra.estado }}</span></header>
+                    <p *ngIf="obra.descripcion">{{ obra.descripcion }}</p>
+                    <div class="obra-proyecto-datos">
+                        <span>Avance: {{ obra.porcentaje_avance }}%</span>
+                        <span>Inicio: {{ obra.fecha_inicio ? (obra.fecha_inicio | date:'dd/MM/yyyy') : 'Sin fecha' }}</span>
+                        <span>Fin estimado: {{ obra.fecha_fin_estimada ? (obra.fecha_fin_estimada | date:'dd/MM/yyyy') : 'Sin fecha' }}</span>
+                    </div>
+                    <div class="obra-proyecto-acciones">
+                        <button type="button" class="btn-guardar" [disabled]="!conectado" (click)="editarObraDeLista(obra)">Modificar</button>
+                        <button type="button" class="btn-eliminar-obra" [disabled]="!conectado" (click)="borrarObraDeLista(obra)">Borrar</button>
+                    </div>
+                </article>
+            </section>
+            <ng-container *ngIf="obraNueva.id || modoEdicionObra; else sinObra">
+                <div class="campo"><label>Nombre de la obra</label><input [(ngModel)]="obraNueva.nombre" [readonly]="!modoEdicionObra || !conectado"></div>
+                <div class="campo"><label>Descripción</label><textarea [(ngModel)]="obraNueva.descripcion" [readonly]="!modoEdicionObra || !conectado"></textarea></div>
+                <div class="fila">
+                    <div class="campo"><label>Estado</label><select [(ngModel)]="obraNueva.estado" [disabled]="!modoEdicionObra || !conectado"><option *ngFor="let estado of estadosObra">{{ estado }}</option></select></div>
+                    <div class="campo"><label>Avance (%)</label><input type="number" min="0" max="100" [(ngModel)]="obraNueva.porcentaje_avance" [readonly]="!modoEdicionObra || !conectado"></div>
+                </div>
+                <div class="fila">
+                    <div class="campo"><label>Fecha de inicio</label><input type="date" [(ngModel)]="obraNueva.fecha_inicio" [disabled]="!modoEdicionObra || !conectado"></div>
+                    <div class="campo"><label>Fin estimado</label><input type="date" [(ngModel)]="obraNueva.fecha_fin_estimada" [disabled]="!modoEdicionObra || !conectado"></div>
+                </div>
+            </ng-container>
+            <ng-template #sinObra><p class="obra-vacia">Selecciona una obra para ver sus datos o crea una nueva obra vinculada a este proyecto.</p></ng-template>
+        </div>
+        <footer class="modal-footer">
+            <button class="btn-cancelar" type="button" (click)="cerrarModalObra()">Cerrar</button>
+            <button *ngIf="!modoEdicionObra" class="btn-guardar" type="button" [disabled]="!conectado" (click)="crearObraProyecto()">Crear obra</button>
+            <ng-container *ngIf="modoEdicionObra">
+                <button class="btn-cancelar" type="button" (click)="cancelarEdicionObra()">Cancelar</button>
+                <button class="btn-guardar" type="button" [disabled]="guardandoObra || !conectado" (click)="guardarObraProyecto()">{{ guardandoObra ? 'Guardando...' : 'Guardar cambios' }}</button>
+            </ng-container>
+        </footer>
+    </section>
+</div>

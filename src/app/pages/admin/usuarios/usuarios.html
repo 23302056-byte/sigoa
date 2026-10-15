@@ -1,0 +1,72 @@
+<app-admin-navbar></app-admin-navbar>
+
+<main class="pagina">
+  <header class="encabezado">
+    <div>
+      <h1>Usuarios</h1>
+      <p>Administra los clientes y arquitectos registrados en SIGOA.</p>
+    </div>
+    <button class="btn-crear" type="button" (click)="abrirFormulario()">
+      Agregar {{ pestana === 'clientes' ? 'cliente' : 'arquitecto' }}
+    </button>
+  </header>
+
+  <nav class="pestanas">
+    <button [class.activa]="pestana === 'clientes'" (click)="pestana = 'clientes'; busqueda = ''">Clientes <span>{{ clientes.length }}</span></button>
+    <button [class.activa]="pestana === 'arquitectos'" (click)="pestana = 'arquitectos'; busqueda = ''">Arquitectos <span>{{ arquitectos.length }}</span></button>
+  </nav>
+
+  <div class="herramientas">
+    <input type="search" [placeholder]="pestana === 'clientes' ? 'Buscar cliente...' : 'Buscar arquitecto...'" [(ngModel)]="busqueda">
+    <span>{{ lista.length }} {{ pestana }}</span>
+  </div>
+
+  <section class="grid" *ngIf="!cargando && !error && lista.length">
+    <article class="persona" *ngFor="let persona of lista">
+      <div class="avatar">{{ persona.nombre.charAt(0) }}{{ persona.apellidos.charAt(0) }}</div>
+      <div class="info">
+        <div class="nombre">
+          <h2>{{ persona.nombre }} {{ persona.apellidos }}</h2>
+          <span class="estado" [class.inactivo]="!persona.activo">{{ persona.activo ? 'Activo' : 'Inactivo' }}</span>
+        </div>
+        <a [href]="'mailto:' + persona.correo">{{ persona.correo }}</a>
+        <span *ngIf="persona.telefono">{{ persona.telefono }}</span>
+        <span *ngIf="pestana === 'clientes' && persona.direccion">{{ persona.direccion }}</span>
+        <span *ngIf="pestana === 'arquitectos'">{{ persona.proyectos || 0 }} proyectos asignados</span>
+        <button class="btn-eliminar" type="button" (click)="eliminarPersona(persona)">Eliminar</button>
+      </div>
+    </article>
+  </section>
+
+  <div class="mensaje" *ngIf="cargando">Cargando {{ pestana }}...</div>
+  <div class="mensaje error" *ngIf="!cargando && error">{{ error }}</div>
+  <div class="mensaje" *ngIf="!cargando && !error && !lista.length">No hay {{ pestana }} que coincidan con la búsqueda.</div>
+</main>
+
+<div class="modal-fondo" *ngIf="mostrarFormulario" (click)="cerrarFormulario()">
+  <section class="modal" (click)="$event.stopPropagation()">
+    <header class="modal-header">
+      <h2>Agregar {{ pestana === 'clientes' ? 'cliente' : 'arquitecto' }}</h2>
+      <button class="cerrar" type="button" [disabled]="guardando" (click)="cerrarFormulario()">×</button>
+    </header>
+    <form class="modal-body" (ngSubmit)="guardarPersona()">
+      <p class="ayuda-formulario" *ngIf="pestana === 'clientes'">
+        Se creará su cuenta de acceso y su registro de cliente. Nombre, apellidos, correo y teléfono se guardarán en ambos registros; la dirección se guardará en sus datos de cliente.
+      </p>
+      <div class="fila">
+        <div class="campo"><label for="nombre">Nombre</label><input id="nombre" name="nombre" [(ngModel)]="nuevo.nombre" required maxlength="100"></div>
+        <div class="campo"><label for="apellidos">Apellidos</label><input id="apellidos" name="apellidos" [(ngModel)]="nuevo.apellidos" required maxlength="100"></div>
+      </div>
+      <div class="campo"><label for="correo">Correo electrónico</label><input id="correo" name="correo" type="email" [(ngModel)]="nuevo.correo" required maxlength="150"></div>
+      <div class="fila">
+        <div class="campo"><label for="telefono">Teléfono</label><input id="telefono" name="telefono" type="tel" [(ngModel)]="nuevo.telefono" maxlength="20"></div>
+        <div class="campo"><label for="password">Contraseña de acceso</label><input id="password" name="password" type="password" [(ngModel)]="nuevo.password" required minlength="6" autocomplete="new-password"></div>
+      </div>
+      <div class="campo" *ngIf="pestana === 'clientes'"><label for="direccion">Dirección del cliente</label><input id="direccion" name="direccion" [(ngModel)]="nuevo.direccion" maxlength="255" autocomplete="street-address"><small>Opcional</small></div>
+      <footer class="modal-footer">
+        <button class="btn-cancelar" type="button" [disabled]="guardando" (click)="cerrarFormulario()">Cancelar</button>
+        <button class="btn-guardar" type="submit" [disabled]="guardando">{{ guardando ? 'Guardando...' : 'Crear ' + (pestana === 'clientes' ? 'cliente' : 'arquitecto') }}</button>
+      </footer>
+    </form>
+  </section>
+</div>

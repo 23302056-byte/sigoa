@@ -1,0 +1,215 @@
+.navbar {
+  width: 100%;
+  min-height: 82px;
+
+  padding: 0 40px;
+  box-sizing: border-box;
+
+  background: white;
+  border-bottom: 1px solid #e3e3e3;
+
+  display: flex;
+  align-items: center;
+  gap: 35px;
+
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+/* LOGO */
+
+.logo {
+  display: flex;
+  flex-direction: column;
+  min-width: 155px;
+}
+
+.logo strong {
+  font-size: 27px;
+  font-weight: 700;
+  color: #111;
+  letter-spacing: 1px;
+}
+
+.logo span {
+  font-size: 12px;
+  color: #777;
+  margin-top: 2px;
+}
+
+/* MENÚ */
+
+.menu {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1;
+}
+
+.menu a {
+  padding: 12px 15px;
+
+  color: #666;
+  text-decoration: none;
+
+  font-size: 14px;
+  font-weight: 500;
+
+  border-radius: 8px;
+
+  transition: all 0.2s ease;
+}
+
+.menu a:hover {
+  background: #f1f1f1;
+  color: #111;
+}
+
+.menu a.activo {
+  background: #111;
+  color: white;
+}
+
+/* USUARIO */
+
+.acciones {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.usuario {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.avatar {
+  width: 44px;
+  height: 44px;
+
+  border-radius: 50%;
+
+  background: #111;
+  color: white;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.datos {
+  display: flex;
+  flex-direction: column;
+  min-width: 150px;
+}
+
+.datos strong {
+  font-size: 14px;
+  color: #222;
+  white-space: nowrap;
+}
+
+.datos span {
+  font-size: 11px;
+  color: #888;
+  margin-top: 3px;
+}
+
+/* CERRAR SESIÓN */
+
+.cerrar {
+  border: 1px solid #d8d8d8;
+
+  background: white;
+  color: #444;
+
+  padding: 11px 16px;
+
+  border-radius: 8px;
+
+  cursor: pointer;
+
+  font-size: 13px;
+  font-weight: 500;
+
+  transition: all 0.2s ease;
+}
+
+.cerrar:hover {
+  background: #111;
+  color: white;
+  border-color: #111;
+}
+
+/* TABLET */
+
+@media (max-width: 1250px) {
+
+  .navbar {
+    padding: 0 25px;
+    gap: 20px;
+  }
+
+  .logo {
+    min-width: 120px;
+  }
+
+  .logo strong {
+    font-size: 23px;
+  }
+
+  .menu a {
+    padding: 10px;
+    font-size: 13px;
+  }
+
+  .datos {
+    display: none;
+  }
+
+}
+
+/* MÓVIL */
+
+@media (max-width: 850px) {
+
+  .navbar {
+    min-height: auto;
+    padding: 15px 20px;
+
+    flex-wrap: wrap;
+  }
+
+  .logo {
+    flex: 1;
+  }
+
+  .acciones {
+    gap: 10px;
+  }
+
+  .menu {
+    order: 3;
+
+    width: 100%;
+    flex-basis: 100%;
+
+    overflow-x: auto;
+
+    padding-bottom: 5px;
+  }
+
+  .menu a {
+    white-space: nowrap;
+  }
+
+  .datos {
+    display: none;
+  }
+
+}

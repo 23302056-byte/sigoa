@@ -1,0 +1,65 @@
+<app-arquitecto-navbar></app-arquitecto-navbar>
+
+<main class="pagina">
+  <section class="encabezado">
+    <div><p class="eyebrow">SEGUIMIENTO DE OBRA</p><h1>Mis obras</h1><p>Consulta y administra las obras de tus proyectos asignados.</p></div>
+    <div class="acciones-encabezado"><button class="actualizar" type="button" (click)="cargarObras()" [disabled]="cargando">↻ Actualizar</button><button class="crear" type="button" (click)="nuevaObra()">+ Nueva obra</button></div>
+  </section>
+
+  <section class="resumen">
+    <div><span>OBRAS ASIGNADAS</span><strong>{{ obras.length }}</strong></div>
+    <div><span>EN CONSTRUCCIÓN</span><strong>{{ obrasEnCurso }}</strong></div>
+    <div><span>FINALIZADAS</span><strong>{{ obrasFinalizadas }}</strong></div>
+  </section>
+
+  <section class="listado">
+    <div class="barra-filtros">
+      <div><h2>Listado de obras</h2><p>{{ obrasFiltradas.length }} resultados</p></div>
+      <div class="controles">
+        <input type="search" placeholder="Buscar obra, proyecto o cliente" [(ngModel)]="busqueda" (input)="aplicarFiltros()">
+        <select [(ngModel)]="filtroEstado" (change)="aplicarFiltros()" aria-label="Filtrar por estado">
+          <option>Todos</option><option>Pendiente</option><option>En construccion</option><option>En construcción</option><option>Pausada</option><option>Finalizada</option><option>Cancelada</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="estado" *ngIf="cargando">Cargando obras asignadas...</div>
+    <div class="estado error" *ngIf="!cargando && error">{{ error }} <button type="button" (click)="cargarObras()">Reintentar</button></div>
+    <div class="estado" *ngIf="!cargando && !error && !obras.length">Tus proyectos todavía no tienen obras registradas.</div>
+    <div class="estado" *ngIf="!cargando && !error && obras.length && !obrasFiltradas.length">No hay obras que coincidan con los filtros.</div>
+
+    <div class="rejilla" *ngIf="!cargando && !error">
+      <article class="obra" *ngFor="let obra of obrasFiltradas">
+        <div class="cabecera-tarjeta"><span class="estado-obra" [ngClass]="{'completada': obra.estado === 'Finalizada' || obra.estado === 'Completada', 'en-curso': obra.estado === 'En construccion' || obra.estado === 'En construcción'}">{{ obra.estado }}</span><small>OBRA #{{ obra.id_obra }}</small></div>
+        <h3>{{ obra.nombre }}</h3>
+        <p class="descripcion" *ngIf="obra.descripcion">{{ obra.descripcion }}</p>
+        <div class="proyecto-relacionado"><span>PROYECTO RELACIONADO</span><a routerLink="/arquitecto/proyectos">{{ obra.proyectoNombre }}</a></div>
+        <div class="datos"><div><span>Cliente</span><strong>{{ obra.cliente || 'Sin cliente registrado' }}</strong></div><div><span>Ubicación</span><strong>{{ obra.ubicacion || 'Sin ubicación registrada' }}</strong></div></div>
+        <div class="avance"><div><span>Avance de la obra</span><strong>{{ obra.porcentaje_avance || 0 }}%</strong></div><div class="barra"><span [style.width.%]="obra.porcentaje_avance || 0"></span></div></div>
+        <div class="fechas"><span>Inicio<strong>{{ obra.fecha_inicio ? (obra.fecha_inicio | date:'dd/MM/yyyy') : 'Pendiente' }}</strong></span><span>Fin estimado<strong>{{ obra.fecha_fin_estimada ? (obra.fecha_fin_estimada | date:'dd/MM/yyyy') : 'Sin fecha' }}</strong></span></div>
+        <div class="acciones-obra"><button type="button" (click)="editarObra(obra)">Editar</button><button type="button" class="eliminar" (click)="eliminarObra(obra)">Eliminar</button></div>
+      </article>
+    </div>
+  </section>
+</main>
+
+<div class="modal-fondo" *ngIf="mostrarModal" (click)="cerrarModal()">
+  <section class="modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" [attr.aria-label]="creando ? 'Crear obra' : 'Editar obra'">
+    <header class="modal-header"><div><p class="eyebrow">GESTIÓN DE OBRA</p><h2>{{ creando ? 'Crear obra' : 'Editar obra' }}</h2></div><button class="cerrar-modal" type="button" (click)="cerrarModal()" aria-label="Cerrar">×</button></header>
+    <div class="modal-body">
+      <label class="campo"><span>Proyecto relacionado</span><select [(ngModel)]="obraSeleccionada.id_proyecto"><option [ngValue]="0" disabled>Selecciona un proyecto</option><option *ngFor="let proyecto of proyectosDisponibles" [ngValue]="proyecto.id">{{ proyecto.nombre }}</option></select></label>
+      <label class="campo"><span>Nombre de la obra</span><input type="text" maxlength="150" [(ngModel)]="obraSeleccionada.nombre" placeholder="Nombre de la obra"></label>
+      <label class="campo"><span>Descripción</span><textarea rows="3" [(ngModel)]="obraSeleccionada.descripcion" placeholder="Descripción de la obra"></textarea></label>
+      <div class="fila-campos">
+        <label class="campo"><span>Estado</span><select [(ngModel)]="obraSeleccionada.estado"><option *ngFor="let estado of estadosObra" [ngValue]="estado">{{ estado }}</option></select></label>
+        <label class="campo"><span>Avance (%)</span><input type="number" min="0" max="100" step="1" [(ngModel)]="obraSeleccionada.porcentaje_avance"></label>
+      </div>
+      <div class="fila-campos">
+        <label class="campo"><span>Fecha de inicio</span><input type="date" [(ngModel)]="obraSeleccionada.fecha_inicio"></label>
+        <label class="campo"><span>Fin estimado</span><input type="date" [(ngModel)]="obraSeleccionada.fecha_fin_estimada"></label>
+      </div>
+      <label class="campo"><span>Fecha de finalización real</span><input type="date" [(ngModel)]="obraSeleccionada.fecha_fin_real"></label>
+    </div>
+    <footer class="modal-footer"><button type="button" class="cancelar" (click)="cerrarModal()">Cancelar</button><button type="button" class="guardar" (click)="guardarObra()" [disabled]="guardando">{{ guardando ? 'Guardando...' : (creando ? 'Crear obra' : 'Guardar cambios') }}</button></footer>
+  </section>
+</div>
