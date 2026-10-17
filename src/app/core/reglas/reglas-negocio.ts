@@ -353,3 +353,44 @@ export function validarPago(p: PagoAValidar, montoContrato: number | null, compr
   }
   return null;
 }
+
+
+// =========================================================
+// USUARIOS (clientes y arquitectos)
+// =========================================================
+
+/** Estados de proyecto (como los da la API) que siguen en curso */
+export const PROYECTO_EN_CURSO = ['En proceso', 'Pausado'];
+
+export interface PersonaAValidar {
+  id: number | null;
+  nombre: string;
+  apellidos: string;
+  correo: string;
+  telefono: string;
+  password: string;
+  confirmar: string;
+}
+
+/**
+ * Valida el formulario de cliente o arquitecto.
+ * @param correosOcupados correos de TODAS las demás cuentas (clientes y arquitectos), en minúsculas
+ */
+export function validarPersona(p: PersonaAValidar, correosOcupados: string[]): string | null {
+  const correo = p.correo.trim().toLowerCase();
+  const telefono = p.telefono.replace(/\D/g, '');
+
+  if (p.nombre.trim().length < 2) return 'Escribe el nombre.';
+  if (p.apellidos.trim().length < 2) return 'Escribe los apellidos.';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(correo)) return 'Escribe un correo válido (ej. nombre@correo.com).';
+  if (correosOcupados.includes(correo)) return `Ya existe una cuenta con el correo ${correo}.`;
+  if (p.telefono.trim() && telefono.length !== 10) return 'El teléfono debe tener 10 dígitos.';
+
+  // Al crear la contraseña es obligatoria; al editar solo si se quiere cambiar
+  if (!p.id || p.password) {
+    if (p.password.length < 8) return 'La contraseña debe tener al menos 8 caracteres.';
+    if (!/[A-Za-z]/.test(p.password) || !/\d/.test(p.password)) return 'La contraseña debe combinar letras y números.';
+    if (p.password !== p.confirmar) return 'Las contraseñas no coinciden.';
+  }
+  return null;
+}

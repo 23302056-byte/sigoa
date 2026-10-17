@@ -19,11 +19,16 @@
   color: var(--sg-gris); text-decoration: none; transition: color var(--sg-transicion);
 }
 .barra__menu a:hover, .barra__menu a.activo { color: var(--sg-negro); }
-.barra__menu a.activo { font-weight: 700; }
-.barra__menu a.activo::after {
+/* "Negrita" con sombra: NO cambia el ancho del texto, así el menú no brinca al cambiar de pantalla */
+.barra__menu a.activo { text-shadow: 0 0 0.6px currentColor, 0 0 0.6px currentColor; }
+/* Subrayado amarillo: siempre existe, pero encogido; al activarse crece desde el centro */
+.barra__menu a::after {
   content: ''; position: absolute; left: 0; right: 0; bottom: 18px;
   height: 3px; background: var(--sg-amarillo);
+  transform: scaleX(0); transition: transform 0.35s cubic-bezier(0.22, 0.7, 0.2, 1);
 }
+.barra__menu a:hover::after { transform: scaleX(0.35); }
+.barra__menu a.activo::after { transform: scaleX(1); }
 
 .barra__acciones { display: flex; align-items: center; gap: 18px; margin-left: auto; }
 
@@ -114,8 +119,7 @@
 
   .tabs a.activo { color: var(--sg-negro); }
   .tabs a.activo .tabs__icono { background: var(--sg-amarillo); }
-  .tabs a.activo .tabs__texto { font-weight: 700; }
-
+  .tabs a.activo .tabs__texto { text-shadow: 0 0 0.5px currentColor; }
   .contenido { padding-bottom: 68px; }
 }
 

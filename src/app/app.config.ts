@@ -4,7 +4,7 @@ import {
   isDevMode
 } from '@angular/core';
 
-import { provideRouter } from '@angular/router';
+import { provideRouter, withInMemoryScrolling } from '@angular/router';
 
 import { provideHttpClient } from '@angular/common/http';
 
@@ -20,8 +20,9 @@ export const appConfig: ApplicationConfig = {
 
     provideBrowserGlobalErrorListeners(),
 
-    provideRouter(routes),
-
+    // Al cambiar de pantalla, la nueva empieza desde arriba
+    provideRouter(routes, withInMemoryScrolling({ scrollPositionRestoration: 'top' })),
+   
     provideHttpClient(),
 
     provideClientHydration(),

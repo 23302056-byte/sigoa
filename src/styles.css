@@ -13,6 +13,7 @@
 
 /* ---------- Componentes compartidos de las pantallas ---------- */
 @import './componentes.css';
+@import './animaciones.css';
 
 /* ---------- Variables (tokens) ---------- */
 :root {
@@ -51,6 +52,12 @@
 html,
 body {
   min-height: 100%;
+}
+
+/* Reserva siempre el espacio de la barra de scroll: así la página (y el menú de arriba)
+   no se recorre a los lados cuando una pantalla es larga y la otra no */
+html {
+  scrollbar-gutter: stable;
 }
 
 body {
