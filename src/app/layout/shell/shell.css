@@ -118,3 +118,11 @@
 
   .contenido { padding-bottom: 68px; }
 }
+
+/* Celular: si hay más de 5 opciones se quitan los textos y caben todos los íconos sin deslizar */
+@media (max-width: 640px) {
+  .tabs--compacta { height: 60px; overflow-x: visible; }
+  .tabs--compacta a { flex: 1 1 0; min-width: 0; }
+  .tabs--compacta .tabs__texto { display: none; }
+  .tabs--compacta .tabs__icono { width: 44px; height: 34px; border-radius: 17px; }
+}

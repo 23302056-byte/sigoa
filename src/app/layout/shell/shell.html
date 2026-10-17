@@ -70,15 +70,18 @@
   </main>
 
   <!-- ============ BARRA INFERIOR (celular y tablet) ============ -->
-  <nav class="tabs" aria-label="Menú principal">
+  <!-- Con más de 5 opciones (admin), en celular solo se ven los íconos -->
+  <nav class="tabs" [class.tabs--compacta]="config().menu.length > 5" aria-label="Menú principal">
     @for (item of config().menu; track item.ruta) {
       <a [routerLink]="item.ruta" routerLinkActive="activo"
-         [routerLinkActiveOptions]="{ exact: item.exacto ?? false }">
+         [routerLinkActiveOptions]="{ exact: item.exacto ?? false }"
+         [attr.aria-label]="item.texto" [attr.title]="item.texto">
         <span class="tabs__icono"><app-icono [nombre]="item.icono" /></span>
         <span class="tabs__texto">{{ item.texto }}</span>
       </a>
     }
   </nav>
+  
 
   <!-- ============ AVISOS Y CONFIRMACIÓN (sirven a todas las pantallas) ============ -->
   <div class="sg-avisos" aria-live="polite">
