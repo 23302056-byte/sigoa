@@ -54,6 +54,12 @@ import { Component, input } from '@angular/core';
         @case ('descargar') {
           <path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>
         }
+        @case ('wifi') {
+          <path d="M12 20h.01"/><path d="M2 8.8a15 15 0 0 1 20 0"/><path d="M5 12.9a10 10 0 0 1 14 0"/><path d="M8.5 16.4a5 5 0 0 1 7 0"/>
+        }
+        @case ('wifi-off') {
+          <path d="M12 20h.01"/><path d="M8.5 16.4a5 5 0 0 1 7 0"/><path d="M5 12.9a10 10 0 0 1 5.2-2.7"/><path d="M19 12.9a10 10 0 0 0-2-1.5"/><path d="M2 8.8a15 15 0 0 1 4.2-2.6"/><path d="M22 8.8a15 15 0 0 0-11.3-3.8"/><path d="m2 2 20 20"/>
+        }
         @case ('sin-conexion') {
           <path d="m2 2 20 20"/><path d="M5.8 5.8A7 7 0 0 0 6 19h11"/><path d="M21 15.5A4.5 4.5 0 0 0 16.5 11h-.6A7 7 0 0 0 10 5.2"/>
         }

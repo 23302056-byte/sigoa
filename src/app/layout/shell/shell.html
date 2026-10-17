@@ -2,14 +2,11 @@
 
   <!-- ============ BARRA SUPERIOR (fija) ============ -->
   <header class="barra">
-    <button type="button" class="barra__hamburguesa" (click)="menuAbierto.set(true)" aria-label="Abrir menú">
-      <app-icono nombre="menu" />
-    </button>
-
     <a class="barra__logo" [routerLink]="config().menu[0].ruta">
       <img src="img/sigoa-logo.png" alt="SIGOA" width="150" height="39">
     </a>
 
+    <!-- Menú de texto: solo en computadora -->
     <nav class="barra__menu" aria-label="Menú principal">
       @for (item of config().menu; track item.ruta) {
         <a [routerLink]="item.ruta" routerLinkActive="activo"
@@ -20,8 +17,11 @@
     </nav>
 
     <div class="barra__acciones">
-      <span class="estado" [class.estado--sin-conexion]="!conexion.enLinea()">
-        {{ conexion.enLinea() ? 'En línea' : 'Sin conexión' }}
+            <!-- Indicador de conexión: wifi verde = con internet · wifi tachado gris = sin internet -->
+      <span class="estado" [class.estado--sin-conexion]="!conexion.enLinea()" role="status"
+            [attr.title]="conexion.enLinea() ? 'En línea' : 'Sin conexión'"
+            [attr.aria-label]="conexion.enLinea() ? 'En línea' : 'Sin conexión'">
+        <app-icono [nombre]="conexion.enLinea() ? 'wifi' : 'wifi-off'" />
       </span>
 
       <button type="button" class="icono-btn" aria-label="Notificaciones">
@@ -35,10 +35,11 @@
         </button>
 
         @if (perfilAbierto()) {
+          <div class="perfil__velo" (click)="perfilAbierto.set(false)"></div>
           <div class="perfil__menu">
             <div class="perfil__datos">
               <strong>{{ usuario()?.nombre }} {{ usuario()?.apellidos }}</strong>
-              <span class="sg-mono">{{ usuario()?.correo }}</span>
+              <span class="perfil__correo">{{ usuario()?.correo }}</span>
               <span class="sg-label">{{ config().etiqueta }}</span>
             </div>
             @if (pwa.puedeInstalar()) {
@@ -58,8 +59,8 @@
   <!-- Aviso sin conexión: la app sigue abierta en modo consulta -->
   @if (!conexion.enLinea()) {
     <div class="aviso-offline" role="status">
-      <app-icono nombre="sin-conexion" />
-      Sin conexión · Modo consulta: los cambios se habilitan al volver la conexión
+      <app-icono nombre="wifi-off" />
+      Sin conexión · Modo consulta
     </div>
   }
 
@@ -68,49 +69,13 @@
     <router-outlet />
   </main>
 
-  <!-- ============ MENÚ LATERAL (celular) ============ -->
-  @if (menuAbierto()) {
-    <div class="velo" (click)="menuAbierto.set(false)"></div>
-    <aside class="cajon" aria-label="Menú">
-      <div class="cajon__cabecera">
-        <img src="img/sigoa-logo.png" alt="SIGOA" width="140" height="36">
-        <button type="button" class="icono-btn" (click)="menuAbierto.set(false)" aria-label="Cerrar menú">
-          <app-icono nombre="cerrar" />
-        </button>
-      </div>
-
-      <nav class="cajon__menu">
-        @for (item of config().menu; track item.ruta) {
-          <a [routerLink]="item.ruta" routerLinkActive="activo"
-             [routerLinkActiveOptions]="{ exact: item.exacto ?? false }">
-            <app-icono [nombre]="item.icono" /> {{ item.texto }}
-          </a>
-        }
-      </nav>
-
-      <div class="cajon__pie">
-        <span class="estado" [class.estado--sin-conexion]="!conexion.enLinea()">
-          {{ conexion.enLinea() ? 'En línea' : 'Sin conexión' }}
-        </span>
-        @if (pwa.puedeInstalar()) {
-          <button type="button" class="sg-btn sg-btn--contorno sg-btn--bloque" (click)="pwa.instalar()">
-            <app-icono nombre="descargar" /> Instalar aplicación
-          </button>
-        }
-        <button type="button" class="cajon__salir" (click)="cerrarSesion()">
-          <app-icono nombre="salir" /> Cerrar sesión
-        </button>
-      </div>
-    </aside>
-  }
-
-  <!-- ============ BARRA INFERIOR (celular) ============ -->
-  <nav class="tabs" aria-label="Accesos rápidos">
-    @for (item of config().tabs; track item.ruta) {
+  <!-- ============ BARRA INFERIOR (celular y tablet) ============ -->
+  <nav class="tabs" aria-label="Menú principal">
+    @for (item of config().menu; track item.ruta) {
       <a [routerLink]="item.ruta" routerLinkActive="activo"
          [routerLinkActiveOptions]="{ exact: item.exacto ?? false }">
-        <app-icono [nombre]="item.icono" />
-        <span>{{ item.texto }}</span>
+        <span class="tabs__icono"><app-icono [nombre]="item.icono" /></span>
+        <span class="tabs__texto">{{ item.texto }}</span>
       </a>
     }
   </nav>

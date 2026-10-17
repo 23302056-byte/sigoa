@@ -1,4 +1,4 @@
-/* ===== App Shell · barra superior, menú lateral y barra inferior ===== */
+/* ===== App Shell · barra superior + barra inferior (celular) ===== */
 .shell { min-height: 100vh; display: flex; flex-direction: column; }
 
 /* ---------- Barra superior ---------- */
@@ -15,11 +15,11 @@
 .barra__menu { display: flex; gap: 32px; flex: 1; justify-content: center; height: 100%; }
 .barra__menu a {
   position: relative; display: flex; align-items: center;
-  font-family: var(--sg-mono); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase;
+  font-family: var(--sg-mono); font-weight: 500; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase;
   color: var(--sg-gris); text-decoration: none; transition: color var(--sg-transicion);
 }
 .barra__menu a:hover, .barra__menu a.activo { color: var(--sg-negro); }
-.barra__menu a.activo { font-weight: 600; }
+.barra__menu a.activo { font-weight: 700; }
 .barra__menu a.activo::after {
   content: ''; position: absolute; left: 0; right: 0; bottom: 18px;
   height: 3px; background: var(--sg-amarillo);
@@ -28,17 +28,13 @@
 .barra__acciones { display: flex; align-items: center; gap: 18px; margin-left: auto; }
 
 /* Indicador de conexión */
-.estado {
-  display: inline-flex; align-items: center; gap: 8px;
-  font-family: var(--sg-mono); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase;
-  color: var(--sg-verde);
-}
-.estado::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--sg-verde); }
-.estado--sin-conexion { color: var(--sg-rojo); }
-.estado--sin-conexion::before { background: var(--sg-rojo); }
+/* Indicador de conexión (ícono de wifi) */
+.estado { display: inline-flex; padding: 6px; color: var(--sg-verde); transition: color var(--sg-transicion); }
+.estado app-icono { width: 22px; height: 22px; }
+.estado--sin-conexion { color: var(--sg-gris); }
 
-/* Botones de ícono y avatar */
-.icono-btn, .barra__hamburguesa {
+/* Botón de ícono y avatar */
+.icono-btn {
   position: relative; display: inline-flex; padding: 6px;
   border: 0; background: transparent; color: var(--sg-negro); cursor: pointer;
 }
@@ -46,26 +42,27 @@
   position: absolute; top: 4px; right: 4px; width: 8px; height: 8px;
   border-radius: 50%; background: var(--sg-amarillo);
 }
-.barra__hamburguesa { display: none; } /* solo se muestra en celular */
 .perfil { position: relative; }
 .avatar {
   width: 38px; height: 38px; border: 0; border-radius: 50%;
   background: var(--sg-negro); color: var(--sg-blanco);
-  font-weight: 600; cursor: pointer;
+  font-family: var(--sg-sans); font-size: 16px; font-weight: 700; cursor: pointer;
 }
+.perfil__velo { position: fixed; inset: 0; z-index: 1; }
 .perfil__menu {
-  position: absolute; right: 0; top: calc(100% + 12px); width: 260px;
+  position: absolute; right: 0; top: calc(100% + 12px); z-index: 2; width: 270px;
   background: var(--sg-papel); border: 1px solid rgba(22, 22, 22, 0.45);
+  box-shadow: 0 12px 32px rgba(22, 22, 22, 0.12);
 }
 .perfil__datos {
   display: flex; flex-direction: column; gap: 4px;
   padding: 16px; border-bottom: 1px solid var(--sg-linea);
 }
-.perfil__datos .sg-mono { font-size: 12px; color: var(--sg-gris); }
-.perfil__opcion, .cajon__salir {
+.perfil__correo { font-size: 13px; color: var(--sg-gris); word-break: break-all; }
+.perfil__opcion {
   display: flex; align-items: center; gap: 12px; width: 100%;
   padding: 14px 16px; border: 0; background: transparent; cursor: pointer;
-  font-family: var(--sg-mono); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase;
+  font-family: var(--sg-mono); font-weight: 600; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase;
   color: var(--sg-negro); text-align: left;
 }
 .perfil__opcion:hover { background: rgba(250, 200, 43, 0.18); }
@@ -75,56 +72,50 @@
   display: flex; align-items: center; justify-content: center; gap: 10px;
   padding: 10px var(--sg-margen);
   background: rgba(250, 200, 43, 0.22); border-bottom: 2px solid var(--sg-amarillo);
-  font-family: var(--sg-mono); font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase;
+  font-family: var(--sg-mono); font-weight: 600; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase;
 }
 
 /* ---------- Contenido ---------- */
 .contenido { flex: 1; }
 
-/* ---------- Menú lateral y barra inferior (solo celular) ---------- */
-.velo, .cajon, .tabs { display: none; }
+/* ---------- Barra inferior (solo celular y tablet) ---------- */
+.tabs { display: none; }
 
 @media (max-width: 1024px) {
   .barra { gap: 12px; height: 64px; }
-  .barra__hamburguesa { display: inline-flex; }
-  .barra__menu, .barra__acciones .estado { display: none; }
-
-  .velo { display: block; position: fixed; inset: 0; z-index: 200; background: rgba(22, 22, 22, 0.35); }
-  .cajon {
-    display: flex; flex-direction: column; position: fixed; top: 0; bottom: 0; left: 0; z-index: 201;
-    width: min(320px, 85vw); background: var(--sg-papel);
-    border-right: 1px solid rgba(22, 22, 22, 0.45); animation: entrar 0.2s ease;
-  }
-  .cajon__cabecera {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 18px 20px; border-bottom: 1px solid var(--sg-linea);
-  }
-  .cajon__menu { display: flex; flex-direction: column; flex: 1; overflow-y: auto; }
-  .cajon__menu a {
-    display: flex; align-items: center; gap: 16px; padding: 18px 24px;
-    border-bottom: 1px solid var(--sg-linea-suave); border-left: 3px solid transparent;
-    font-family: var(--sg-mono); font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase;
-    color: var(--sg-negro); text-decoration: none;
-  }
-  .cajon__menu a.activo { background: rgba(250, 200, 43, 0.18); border-left-color: var(--sg-amarillo); font-weight: 600; }
-  .cajon__pie { display: flex; flex-direction: column; gap: 16px; padding: 20px 24px; border-top: 1px solid var(--sg-linea); }
-  .cajon__salir { padding: 8px 0; }
+  .barra__menu { display: none; }
 
   .tabs {
     display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 100;
-    height: 64px; background: rgba(250, 250, 247, 0.96);
+    height: 68px; padding-bottom: env(safe-area-inset-bottom);
+    background: rgba(250, 250, 247, 0.97);
     border-top: 1px solid rgba(22, 22, 22, 0.45);
+    /* Si no caben todas las opciones (admin = 7), la barra se desliza */
+    overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity;
   }
-  .tabs a {
-    position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-    font-family: var(--sg-mono); font-size: 9px; letter-spacing: 0.04em; text-transform: uppercase;
-    color: var(--sg-gris); text-decoration: none;
-  }
-  .tabs a.activo { color: var(--sg-negro); font-weight: 600; }
-  .tabs a.activo::after {
-    content: ''; position: absolute; left: 20%; right: 20%; bottom: 6px; height: 3px; background: var(--sg-amarillo);
-  }
-  .contenido { padding-bottom: 64px; }
-}
+  .tabs::-webkit-scrollbar { display: none; }
 
-@keyframes entrar { from { transform: translateX(-100%); } to { transform: none; } }
+  .tabs a {
+    flex: 1 0 76px; scroll-snap-align: center;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    color: var(--sg-gris); text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Ícono dentro de una "píldora" que se pinta de amarillo al estar activo */
+  .tabs__icono {
+    display: flex; align-items: center; justify-content: center;
+    width: 52px; height: 30px; border-radius: 15px;
+    transition: background var(--sg-transicion), color var(--sg-transicion);
+  }
+  .tabs__texto {
+    font-family: var(--sg-mono); font-weight: 500; font-size: 10px; letter-spacing: 0.03em;
+    text-transform: uppercase; white-space: nowrap;
+  }
+
+  .tabs a.activo { color: var(--sg-negro); }
+  .tabs a.activo .tabs__icono { background: var(--sg-amarillo); }
+  .tabs a.activo .tabs__texto { font-weight: 700; }
+
+  .contenido { padding-bottom: 68px; }
+}
