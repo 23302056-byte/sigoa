@@ -26,19 +26,7 @@
 
 /* Barra de avance idéntica a proyectos */
 .avance { display: flex; align-items: center; gap: 12px; min-width: 140px; }
-.sg-cota { 
-  flex: 1; height: 8px; background: rgba(22, 22, 22, 0.1); 
-  border-radius: 4px; overflow: hidden; position: relative;
-}
-.sg-cota__relleno {
-  display: block; height: 100%; background: var(--sg-negro); 
-  position: relative; transition: width 0.4s ease;
-}
-.sg-cota__relleno::after {
-  content: ''; position: absolute; inset: 0;
-  background-image: linear-gradient(45deg, rgba(255,255,255,0.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.15) 75%, transparent 75%, transparent);
-  background-size: 8px 8px;
-}
+
 .avance__numero { width: 44px; font-weight: 800; text-align: right; font-family: var(--sg-mono); font-size: 14px; }
 
 .enlace {

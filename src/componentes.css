@@ -14,8 +14,9 @@
 /* ---------- Contenedor y encabezado de página ---------- */
 .sg-pagina {
   max-width: 1440px;
-  margin: 0 auto;
+  margin: 20px auto 40px;
   padding: 36px var(--sg-margen) 56px;
+  border-radius: 12px;
   background-color: #ffffff9b; /* atenúa la cuadrícula */
 }
 
@@ -203,6 +204,22 @@
 }
 .sg-vacio p { margin: 0; }
 
+/* ---------- Indicadores (mismo estilo que las tarjetas del Inicio) ---------- */
+.sg-indicadores { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 28px; }
+.sg-indicador {
+  display: flex; flex-direction: column; gap: 10px; padding: 20px 22px;
+  border: 1px solid var(--sg-fuerte); border-radius: 8px; background: transparent;
+}
+.sg-indicador__cabeza { display: flex; align-items: center; gap: 12px; }
+.sg-indicador__numero { font-size: clamp(28px, 2.8vw, 40px); font-weight: 800; letter-spacing: -0.04em; line-height: 1; }
+.sg-indicador small { font-size: 13px; color: var(--sg-gris); }
+
+/* Filtro activo por proyecto (cuando se llega desde la ficha de un proyecto) */
+.sg-filtro-proyecto {
+  display: inline-flex; align-items: center; gap: 12px; margin-bottom: 24px; padding: 8px 8px 8px 16px;
+  border: 1px solid var(--sg-fuerte); border-radius: 4px; background: var(--sg-blanco);
+}
+
 /* ---------- Velo, modal y panel lateral ---------- */
 .sg-velo {
   position: fixed;
@@ -223,6 +240,8 @@
   max-height: calc(100dvh - 48px);
   background: var(--sg-papel);
   border: 1px solid var(--sg-negro);
+  border-radius: 8px;
+  overflow: hidden;
   transform: translate(-50%, -50%);
   animation: sg-aparecer 0.15s ease;
 }
@@ -329,7 +348,8 @@
   .sg-pagina { padding-top: 24px; }
   .sg-form { grid-template-columns: 1fr; }
   .sg-modal__cabecera, .sg-modal__cuerpo, .sg-modal__pie { padding-left: 18px; padding-right: 18px; }
-  .sg-modal { top: auto; bottom: 0; left: 0; width: 100vw; max-height: 92dvh; transform: none; }
+   .sg-modal { top: auto; bottom: 0; left: 0; width: 100vw; max-height: 92dvh; transform: none; border-radius: 12px 12px 0 0; }
   .sg-buscador { width: 100%; }
+  .sg-indicadores { grid-template-columns: 1fr; gap: 12px; }
   .sg-cabecera__acciones { width: 100%; flex-direction: column; align-items: stretch; }
 }

@@ -288,54 +288,34 @@ a {
 .sg-chip--activo::before { background: var(--sg-verde); }
 .sg-chip--proceso::before { background: var(--sg-amarillo); }
 .sg-chip--pausado::before { background: var(--sg-rojo); }
-
-/* ---------- Barra de avance tipo línea de cota ---------- */
+ 
+/* ---------- Barra de avance (amarilla con rayas) ---------- */
 /* Uso: <div class="sg-cota"><span class="sg-cota__relleno" style="width: 75%"></span></div> */
 .sg-cota {
   position: relative;
-  height: 14px;
+  height: 8px;
   min-width: 80px;
-}
-
-.sg-cota::before {
-  /* línea base */
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 1px;
-  background: var(--sg-negro);
-}
-
-.sg-cota::after {
-  /* remates en los extremos */
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-left: 1px solid var(--sg-negro);
-  border-right: 1px solid var(--sg-negro);
+  overflow: hidden;
+  border-radius: 4px;
+  background: rgba(22, 22, 22, 0.1);
 }
 
 .sg-cota__relleno {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  height: 6px;
-  transform: translateY(-50%);
+  position: relative;
+  display: block;
+  height: 100%;
   background: var(--sg-amarillo);
-  transition: width 0.6s ease;
+  transition: width 0.4s ease;
 }
 
 .sg-cota__relleno::after {
-  /* marca donde termina el avance */
+  /* rayas diagonales */
   content: '';
   position: absolute;
-  right: 0;
-  top: -4px;
-  height: 14px;
-  width: 1px;
-  background: var(--sg-negro);
+  inset: 0;
+  background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.3) 25%, transparent 25%, transparent 50%,
+    rgba(255, 255, 255, 0.3) 50%, rgba(255, 255, 255, 0.3) 75%, transparent 75%, transparent);
+  background-size: 8px 8px;
 }
 
 /* ---------- Utilidades responsivas ---------- */

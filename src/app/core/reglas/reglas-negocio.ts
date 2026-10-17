@@ -131,3 +131,95 @@ export function ajustarObraPorEstado(o: ObraAValidar, estado: string): void {
     o.fecha_fin_real = '';
   }
 }
+
+
+// =========================================================
+// COTIZACIONES
+// =========================================================
+
+export const ESTADOS_COTIZACION = ['Borrador', 'Enviada', 'Aceptada', 'Rechazada', 'Vencida'];
+
+export interface ConceptoAValidar {
+  concepto: string;
+  cantidad: number;
+  precio_unitario: number;
+}
+
+export interface CotizacionResumen {
+  id: number;
+  id_proyecto: number;
+  folio: string;
+  estado: string;
+}
+
+export interface CotizacionAValidar {
+  id: number | null;
+  id_proyecto: number | null;
+  folio: string;
+  fecha: string;
+  vigencia: string;
+  estado: string;
+  /** Estado con el que se abrió el formulario (null si es nueva) */
+  estadoOriginal: string | null;
+  porcentaje_iva: number;
+  detalles: ConceptoAValidar[];
+}
+
+/** Redondeo a centavos, igual que el backend */
+export function centavos(valor: number): number {
+  return Math.round((valor + Number.EPSILON) * 100) / 100;
+}
+
+/** Una cotización aceptada ya no cambia sus montos (es la base del contrato) */
+export function conceptosBloqueados(estadoOriginal: string | null): boolean {
+  return estadoOriginal === 'Aceptada';
+}
+
+/**
+ * Motivo por el que un estado NO se puede elegir para la cotización.
+ * Devuelve '' cuando el estado sí está permitido.
+ */
+export function motivoEstadoCotizacion(
+  c: Pick<CotizacionAValidar, 'id' | 'id_proyecto' | 'vigencia' | 'estadoOriginal'>,
+  estado: string,
+  todas: CotizacionResumen[]
+): string {
+  const hoy = hoyISO();
+  if (!c.id && !['Borrador', 'Enviada'].includes(estado)) return 'solo al editar';
+  if (estado === c.estadoOriginal) return '';
+
+  if (estado === 'Vencida' && (!c.vigencia || c.vigencia >= hoy)) return 'la vigencia no ha pasado';
+  if (estado === 'Enviada' && c.vigencia && c.vigencia < hoy) return 'actualiza la vigencia';
+  if (estado === 'Aceptada') {
+    if (c.vigencia && c.vigencia < hoy) return 'la vigencia ya pasó';
+    const otraAceptada = todas.some((o) => o.id !== c.id && o.id_proyecto === c.id_proyecto && o.estado === 'Aceptada');
+    if (otraAceptada) return 'el proyecto ya tiene una aceptada';
+  }
+  return '';
+}
+
+/** Valida el formulario de cotización. Devuelve el mensaje de error o null si todo está bien. */
+export function validarCotizacion(c: CotizacionAValidar, todas: CotizacionResumen[]): string | null {
+  const folio = c.folio.trim().toUpperCase();
+  if (!c.id_proyecto) return 'Selecciona el proyecto de la cotización.';
+  if (folio.length < 3) return 'Escribe el folio de la cotización (ej. COT-2026-003).';
+  if (todas.some((o) => o.id !== c.id && o.folio.toUpperCase() === folio)) return `El folio ${folio} ya está registrado.`;
+  if (!c.fecha) return 'Indica la fecha de la cotización.';
+  if (c.vigencia && c.vigencia < c.fecha) return 'La vigencia no puede ser antes de la fecha de la cotización.';
+
+  const iva = Number(c.porcentaje_iva);
+  if (!Number.isFinite(iva) || iva < 0 || iva > 100) return 'El IVA debe estar entre 0 y 100 %.';
+
+  if (!c.detalles.length) return 'Agrega al menos un concepto.';
+  for (const [i, d] of c.detalles.entries()) {
+    const fila = `Concepto ${i + 1}`;
+    if (!d.concepto.trim()) return `${fila}: escribe el nombre del concepto.`;
+    if (!(Number(d.cantidad) > 0)) return `${fila}: la cantidad debe ser mayor a 0.`;
+    if (!(Number(d.precio_unitario) >= 0)) return `${fila}: el precio no puede ser negativo.`;
+  }
+
+  if (c.estado !== 'Borrador' && !c.vigencia) return 'Indica hasta cuándo es válida la cotización.';
+  const motivo = motivoEstadoCotizacion(c, c.estado, todas);
+  if (motivo) return `No se puede marcar como "${c.estado}": ${motivo}.`;
+  return null;
+}
