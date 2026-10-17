@@ -303,3 +303,53 @@ export function validarContrato(c: ContratoAValidar, todos: ContratoResumen[], t
   }
   return null;
 }
+
+
+// =========================================================
+// PAGOS
+// =========================================================
+
+export const ESTADOS_PAGO = ['Pendiente', 'Pagado', 'Cancelado'];
+export const METODOS_PAGO = ['Transferencia', 'Efectivo', 'Tarjeta', 'Otro'];
+
+export interface PagoAValidar {
+  id: number | null;
+  id_proyecto: number | null;
+  fecha: string;
+  concepto: string;
+  monto: number;
+  metodo_pago: string;
+  referencia: string;
+  estado: string;
+}
+
+/** Transferencias y tarjetas pagadas deben llevar su referencia (SPEI, autorización…) */
+export function pideReferencia(p: Pick<PagoAValidar, 'metodo_pago' | 'estado'>): boolean {
+  return p.estado === 'Pagado' && ['Transferencia', 'Tarjeta'].includes(p.metodo_pago);
+}
+
+/**
+ * Valida el formulario de pago. Devuelve el mensaje de error o null si todo está bien.
+ * @param montoContrato monto del contrato activo/finalizado del proyecto (null si no tiene)
+ * @param comprometido suma de los OTROS pagos no cancelados del proyecto (pagados + pendientes)
+ */
+export function validarPago(p: PagoAValidar, montoContrato: number | null, comprometido: number): string | null {
+  const monto = Number(p.monto);
+  if (!p.id_proyecto) return 'Selecciona el proyecto del pago.';
+  if (p.concepto.trim().length < 3) return 'Escribe el concepto del pago (ej. Anticipo 30%).';
+  if (!p.fecha) return 'Indica la fecha del pago.';
+  if (!Number.isFinite(monto) || monto <= 0) return 'El monto debe ser mayor a 0.';
+  if (!METODOS_PAGO.includes(p.metodo_pago)) return 'Selecciona el método de pago.';
+
+  if (p.estado === 'Pagado' && p.fecha > hoyISO()) {
+    return 'Un pago no puede marcarse como pagado con fecha futura. Déjalo pendiente.';
+  }
+  if (pideReferencia(p) && !p.referencia.trim()) {
+    return `Escribe la referencia de la ${p.metodo_pago.toLowerCase()} (folio SPEI o autorización).`;
+  }
+  if (p.estado !== 'Cancelado' && montoContrato !== null && centavos(comprometido + monto) > centavos(montoContrato)) {
+    const disponible = Math.max(0, centavos(montoContrato - comprometido));
+    return `El pago excede el contrato: solo quedan ${disponible.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })} por programar.`;
+  }
+  return null;
+}
