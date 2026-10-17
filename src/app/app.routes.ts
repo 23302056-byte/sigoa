@@ -1,7 +1,7 @@
 import { Routes } from '@angular/router';
-import { adminAuthGuard } from './guards/admin-auth.guard';
-import { architectAuthGuard } from './guards/architect-auth.guard';
-import { clienteAuthGuard } from './guards/cliente-auth.guard';
+import { adminAuthGuard } from './core/guards/admin-auth.guard';
+import { architectAuthGuard } from './core/guards/architect-auth.guard';
+import { clienteAuthGuard } from './core/guards/cliente-auth.guard';
 import { Shell } from './layout/shell/shell';
 
 /**
@@ -25,7 +25,7 @@ export const routes: Routes = [
     children: [
       { path: '', loadComponent: () => import('./pages/admin/inicio/inicio').then(m => m.InicioComponent) },
       { path: 'proyectos', loadComponent: () => import('./pages/admin/proyectos/proyectos').then(m => m.Proyectos) },
-      { path: 'obras', loadComponent: () => import('./pages/obras/obras').then(m => m.Obras) },
+      { path: 'obras', loadComponent: () => import('./pages/admin/obras/obras').then(m => m.Obras) },
       { path: 'cotizaciones', loadComponent: () => import('./pages/admin/cotizaciones/cotizaciones').then(m => m.Cotizaciones) },
       { path: 'contratos', loadComponent: () => import('./pages/admin/contratos/contratos').then(m => m.Contratos) },
       { path: 'pagos', loadComponent: () => import('./pages/admin/pagos/pagos').then(m => m.Pagos) },

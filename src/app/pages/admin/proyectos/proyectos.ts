@@ -1,34 +1,28 @@
-
-import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, OnDestroy, PLATFORM_ID, computed, effect, inject, signal, untracked } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
+import { Icono } from '../../../shared/icono/icono';
+import { ConexionService } from '../../../core/services/conexion.service';
+import { AvisosService } from '../../../core/services/avisos.service';
 
+const API = 'http://localhost:3000/api/routes';
 
-interface Proyecto {
-  id: number;
-  id_cliente?: number;
-  id_arquitecto?: number | null;
-  nombre: string;
-  descripcion: string;
-  cliente: string;
-  arquitecto?: string;
-  ubicacion: string;
-  estado: string;
-  fecha_inicio: string;
-  fecha_fin: string;
-  id_obra?: number | null;
-  obra_nombre?: string;
-  obra_estado?: string;
-  obra_avance?: number;
-  obra_descripcion?: string;
-  obra_fecha_inicio?: string;
-  obra_fecha_fin_estimada?: string;
-  obras?: ObraRelacionada[];
-}
+// IndexedDB: misma base que usa todo SIGOA (se borra al cerrar sesión)
+const DB_NOMBRE = 'SIGOA_DB';
+const DB_VERSION = 1;
+const DB_STORE = 'resumen';
+const DB_CLAVE = 'admin-proyectos';
 
-interface ObraRelacionada {
+const POR_PAGINA = 8;
+
+/** Estados como los devuelve y acepta la API de proyectos */
+const ESTADOS_PROYECTO = ['Pendiente', 'En proceso', 'Pausado', 'Completado', 'Cancelado'];
+/** Estados válidos de una obra en la base de datos */
+const ESTADOS_OBRA = ['Pendiente', 'En construccion', 'Pausada', 'Finalizada', 'Cancelada'];
+
+interface ObraProyecto {
   id_obra: number;
   id_proyecto: number;
   nombre: string;
@@ -36,687 +30,584 @@ interface ObraRelacionada {
   estado: string;
   fecha_inicio: string;
   fecha_fin_estimada: string;
-  fecha_fin_real: string;
   porcentaje_avance: number;
 }
 
-interface RespuestaProyectos {
-  success: boolean;
-  mensaje?: string;
-  proyectos?: Proyecto[];
-  proyecto?: Proyecto;
-  clientes?: OpcionPersona[];
-  arquitectos?: OpcionPersona[];
+interface Proyecto {
+  id: number;
+  id_cliente: number | null;
+  id_arquitecto: number | null;
+  nombre: string;
+  descripcion: string;
+  cliente: string;
+  arquitecto: string;
+  ubicacion: string;
+  estado: string;
+  fecha_inicio: string;
+  fecha_fin: string;
+  porcentaje_avance: number;
+  obras: ObraProyecto[];
 }
 
-interface OpcionPersona { id: number; nombre: string; }
-interface RespuestaObras { success: boolean; id?: number; mensaje?: string; }
-interface NuevaObra { id: number | null; id_proyecto: number; nombre: string; descripcion: string; estado: string; fecha_inicio: string; fecha_fin_estimada: string; porcentaje_avance: number; }
+interface Opcion {
+  id: number;
+  nombre: string;
+}
 
+interface FormProyecto {
+  id: number | null;
+  id_cliente: number | null;
+  id_arquitecto: number | null;
+  nombre: string;
+  descripcion: string;
+  ubicacion: string;
+  estado: string;
+  fecha_inicio: string;
+  fecha_fin: string;
+}
+
+interface FormObra {
+  id: number | null;
+  id_proyecto: number;
+  nombre: string;
+  descripcion: string;
+  estado: string;
+  fecha_inicio: string;
+  fecha_fin_estimada: string;
+  porcentaje_avance: number;
+}
+
+interface Respuesta {
+  success: boolean;
+  mensaje?: string;
+  id?: number;
+  proyectos?: unknown[];
+  clientes?: Opcion[];
+  arquitectos?: Opcion[];
+}
+
+/** Lo que se guarda en IndexedDB para consultar sin conexión */
+interface DatosProyectos {
+  proyectos: Proyecto[];
+  guardadoEn: number;
+}
+
+/**
+ * PROYECTOS · ADMINISTRADOR
+ *  - Lista con búsqueda, filtro por estado y paginación
+ *  - Ficha lateral del proyecto con sus obras y accesos a cotizaciones, contratos y pagos
+ *  - Formularios (modales) para crear/editar proyectos y obras
+ * Con conexión consulta la API y guarda una copia en IndexedDB.
+ * Sin conexión muestra la copia guardada y bloquea crear, editar y eliminar.
+ */
 @Component({
   selector: 'app-proyectos',
   standalone: true,
-  imports: [
-    CommonModule,
-    FormsModule,
-   ],
+  imports: [FormsModule, Icono],
   templateUrl: './proyectos.html',
   styleUrl: './proyectos.css'
 })
-export class Proyectos implements OnInit, OnDestroy {
+export class Proyectos implements OnDestroy {
+  private readonly http = inject(HttpClient);
+  private readonly router = inject(Router);
+  private readonly esNavegador = isPlatformBrowser(inject(PLATFORM_ID));
+  readonly conexion = inject(ConexionService);
+  private readonly avisos = inject(AvisosService);
 
-  private readonly API_URL = 'http://localhost:3000/api/routes/proyectos';
+  readonly estadosProyecto = ESTADOS_PROYECTO;
+  readonly estadosObra = ESTADOS_OBRA;
+  readonly filtros = ['Todos', ...ESTADOS_PROYECTO];
 
-  proyectos: Proyecto[] = [];
-  proyectosFiltrados: Proyecto[] = [];
-  clientes: OpcionPersona[] = [];
-  arquitectos: OpcionPersona[] = [];
+  // ---------- Estado de la pantalla ----------
+  readonly cargando = signal(true);
+  readonly error = signal('');
+  readonly proyectos = signal<Proyecto[]>([]);
+  readonly desdeCopia = signal(false);
+  readonly guardadoEn = signal<number | null>(null);
+  readonly clientes = signal<Opcion[]>([]);
+  readonly arquitectos = signal<Opcion[]>([]);
 
-  cargando = true;
-  errorCarga = '';
-  busqueda = '';
+  // ---------- Filtros ----------
+  readonly busqueda = signal('');
+  readonly filtroEstado = signal('Todos');
+  readonly pagina = signal(1);
 
-  mostrarModal = false;
-  mostrarModalObra = false;
-  creandoProyecto = false;
-  modoEdicion = false;
-  guardando = false;
-  guardandoObra = false;
-  conectado = false;
-  obraNueva: NuevaObra = this.obraVacia();
-  proyectoObraSeleccionado: Proyecto | null = null;
-  obrasDelProyecto: ObraRelacionada[] = [];
-  obraActivaId: number | null = null;
-  modoEdicionObra = false;
-  readonly estadosObra = ['Pendiente', 'En construccion', 'Pausada', 'Finalizada', 'Cancelada'];
+  // ---------- Ventanas ----------
+  /** Proyecto abierto en la ficha lateral */
+  readonly seleccionado = signal<Proyecto | null>(null);
+  /** Formulario de proyecto abierto (crear o editar) */
+  readonly formProyecto = signal<FormProyecto | null>(null);
+  /** Formulario de obra abierto (crear o editar) */
+  readonly formObra = signal<FormObra | null>(null);
+  /** Id del proyecto con el menú ⋮ abierto */
+  readonly menuAbierto = signal<number | null>(null);
+  readonly guardando = signal(false);
 
-  private dbOffline: IDBDatabase | null = null;
-  private readonly nombreDBOffline = 'SIGOA_PROYECTOS_CACHE';
-  private readonly storeOffline = 'proyectos';
+  // ---------- Datos calculados ----------
+  readonly filtrados = computed(() => {
+    const texto = this.busqueda().toLowerCase().trim();
+    const estado = this.filtroEstado();
+    return this.proyectos().filter((p) => {
+      const coincideEstado = estado === 'Todos' || p.estado === estado;
+      const coincideTexto =
+        !texto ||
+        [p.nombre, p.cliente, p.arquitecto, p.ubicacion, this.codigo(p.id)].some((v) => v.toLowerCase().includes(texto));
+      return coincideEstado && coincideTexto;
+    });
+  });
 
-  proyectoSeleccionado: Proyecto = this.proyectoVacio();
+  readonly conteos = computed(() => {
+    const conteo: Record<string, number> = { Todos: this.proyectos().length };
+    for (const p of this.proyectos()) conteo[p.estado] = (conteo[p.estado] ?? 0) + 1;
+    return conteo;
+  });
 
-  // Estados válidos definidos en la base de datos
-  estados = [
-    'Planeacion',
-    'En progreso',
-    'Pausado',
-    'Finalizado',
-    'Cancelado'
-  ];
+  readonly totalPaginas = computed(() => Math.max(1, Math.ceil(this.filtrados().length / POR_PAGINA)));
 
-  constructor(
-    private http: HttpClient,
-    private changeDetector: ChangeDetectorRef,
-    private router: Router
-  ) {}
+  readonly paginaActual = computed(() => {
+    const inicio = (Math.min(this.pagina(), this.totalPaginas()) - 1) * POR_PAGINA;
+    return this.filtrados().slice(inicio, inicio + POR_PAGINA);
+  });
 
-  ngOnInit(): void {
-    if (typeof window === 'undefined' || typeof navigator === 'undefined') return;
+  private db: IDBDatabase | null = null;
+  private dbLista: Promise<IDBDatabase | null> = Promise.resolve(null);
 
-    this.conectado = navigator.onLine;
-    window.addEventListener('online', this.cuandoHayInternet);
-    window.addEventListener('offline', this.cuandoNoHayInternet);
-    this.abrirCacheOffline().then(() => {
-      this.cargarProyectos();
-      if (navigator.onLine) this.cargarOpciones();
-    }).catch(error => {
-      this.cargarProyectos();
-      console.error('No se pudo abrir la caché offline:', error);
-      if (navigator.onLine) {
-        this.cargarOpciones();
-      } else {
-        this.errorCarga = 'Sin conexión y no se pudo abrir el almacenamiento local.';
-        this.cargando = false;
-      }
+  constructor() {
+    if (!this.esNavegador) {
+      this.cargando.set(false);
+      return;
+    }
+
+    this.dbLista = this.abrirDB();
+
+    // Cada vez que cambia la conexión: en línea → API, sin conexión → copia guardada
+    effect(() => {
+      const enLinea = this.conexion.enLinea();
+      untracked(() => {
+        if (enLinea) {
+          this.consultarServidor();
+          this.cargarOpciones();
+        } else {
+          this.cargarCopia();
+          this.formProyecto.set(null);
+          this.formObra.set(null);
+        }
+      });
     });
   }
 
   ngOnDestroy(): void {
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('online', this.cuandoHayInternet);
-      window.removeEventListener('offline', this.cuandoNoHayInternet);
-    }
-    this.dbOffline?.close();
-    this.dbOffline = null;
+    this.db?.close();
   }
 
-  private cuandoHayInternet = (): void => {
-    this.conectado = true;
-    this.cargarProyectos();
-    this.cargarOpciones();
-    this.changeDetector.detectChanges();
-  };
+  // =========================================================
+  // DATOS
+  // =========================================================
 
-  private cuandoNoHayInternet = (): void => {
-    this.conectado = false;
-    this.cargarProyectosGuardados();
-    this.changeDetector.detectChanges();
-  };
+  recargar(): void {
+    this.conexion.enLinea() ? this.consultarServidor() : this.cargarCopia();
+  }
 
-  private abrirCacheOffline(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (typeof window === 'undefined' || !window.indexedDB) {
-        reject(new Error('IndexedDB no está disponible'));
-        return;
-      }
-      const request = window.indexedDB.open(this.nombreDBOffline, 1);
-      request.onupgradeneeded = () => {
-        const db = request.result;
-        if (!db.objectStoreNames.contains(this.storeOffline)) {
-          db.createObjectStore(this.storeOffline);
+  private consultarServidor(): void {
+    this.cargando.set(true);
+    this.error.set('');
+
+    this.http.get<Respuesta>(`${API}/proyectos`).subscribe({
+      next: (respuesta) => {
+        if (!respuesta.success) {
+          this.error.set(respuesta.mensaje || 'No se pudieron cargar los proyectos.');
+          this.cargando.set(false);
+          return;
         }
-      };
-      request.onsuccess = () => {
-        this.dbOffline = request.result;
-        resolve();
-      };
-      request.onerror = () => reject(request.error);
+        const datos: DatosProyectos = {
+          proyectos: (respuesta.proyectos ?? []).map((p) => this.normalizar(p)),
+          guardadoEn: Date.now()
+        };
+        this.mostrar(datos, false);
+        this.guardarCopia(datos);
+      },
+      // Servidor apagado o error: se intenta con la copia guardada
+      error: () => this.cargarCopia()
     });
-  }
-
-  private guardarProyectosOffline(proyectos: Proyecto[]): void {
-    if (!this.dbOffline) return;
-    const tx = this.dbOffline.transaction(this.storeOffline, 'readwrite');
-    tx.objectStore(this.storeOffline).put(proyectos, 'lista');
-  }
-
-  private cargarProyectosGuardados(): void {
-    if (!this.dbOffline) {
-      this.cargando = false;
-      this.errorCarga = 'No hay almacenamiento local disponible.';
-      return;
-    }
-    const request = this.dbOffline.transaction(this.storeOffline, 'readonly')
-      .objectStore(this.storeOffline).get('lista');
-    request.onsuccess = () => {
-      if (Array.isArray(request.result)) {
-        this.proyectos = this.quitarProyectosDuplicados(request.result.map((proyecto: any) => this.normalizarProyecto(proyecto)));
-        this.buscar();
-        this.errorCarga = '';
-      } else {
-        this.proyectos = [];
-        this.proyectosFiltrados = [];
-        this.errorCarga = 'No hay proyectos guardados para consultar sin conexión.';
-      }
-      this.cargando = false;
-      this.changeDetector.detectChanges();
-    };
-    request.onerror = () => {
-      this.cargando = false;
-      this.errorCarga = 'No se pudieron leer los proyectos guardados.';
-      this.changeDetector.detectChanges();
-    };
   }
 
   private cargarOpciones(): void {
-    this.http.get<RespuestaProyectos>(`${this.API_URL}/opciones`).subscribe({
-      next: respuesta => {
-        this.clientes = respuesta.clientes || [];
-        this.arquitectos = respuesta.arquitectos || [];
-      },
-      error: error => console.error('Error al cargar clientes y arquitectos:', error)
-    });
-  }
-
-  // ========================================
-  // CARGAR PROYECTOS
-  // ========================================
-
-  cargarProyectos(): void {
-    this.cargando = true;
-    this.errorCarga = '';
-
-    this.http.get<RespuestaProyectos>(this.API_URL).subscribe({
+    this.http.get<Respuesta>(`${API}/proyectos/opciones`).subscribe({
       next: (respuesta) => {
-        console.log('Proyectos recibidos:', respuesta);
-        this.conectado = navigator.onLine;
-
-        if (respuesta.success) {
-          this.proyectos = this.quitarProyectosDuplicados((respuesta.proyectos || []).map(proyecto =>
-            this.normalizarProyecto(proyecto)
-          ));
-
-          this.buscar();
-          this.errorCarga = '';
-          this.guardarProyectosOffline(this.proyectos);
-        } else {
-          this.errorCarga =
-            respuesta.mensaje || 'No se pudieron cargar los proyectos.';
-        }
-
-        this.cargando = false;
-        this.changeDetector.detectChanges();
+        this.clientes.set(respuesta.clientes ?? []);
+        this.arquitectos.set(respuesta.arquitectos ?? []);
       },
-
-      error: (error) => {
-        console.error('Error al cargar proyectos:', error);
-        this.conectado = false;
-
-        this.errorCarga =
-          error.error?.mensaje ||
-          'No se pudieron cargar los proyectos. Comprueba que el backend esté activo.';
-
-        this.cargando = false;
-        this.changeDetector.detectChanges();
-        this.cargarProyectosGuardados();
-      }
+      error: () => { /* los selectores quedan vacíos; se reintenta al volver la conexión */ }
     });
   }
 
-  // ========================================
-  // NORMALIZAR DATOS DEL BACKEND
-  // ========================================
+  private mostrar(datos: DatosProyectos, desdeCopia: boolean): void {
+    this.proyectos.set(datos.proyectos);
+    this.guardadoEn.set(datos.guardadoEn);
+    this.desdeCopia.set(desdeCopia);
+    this.error.set('');
+    this.cargando.set(false);
 
-  private normalizarProyecto(proyecto: any): Proyecto {
-    const obras = Array.isArray(proyecto.obras)
-      ? proyecto.obras
-      : proyecto.id_obra
-        ? [{
-            id_obra: proyecto.id_obra,
-            id_proyecto: proyecto.id ?? proyecto.id_proyecto,
-            nombre: proyecto.obra_nombre,
-            descripcion: proyecto.obra_descripcion,
-            estado: proyecto.obra_estado,
-            fecha_inicio: proyecto.obra_fecha_inicio,
-            fecha_fin_estimada: proyecto.obra_fecha_fin_estimada,
-            porcentaje_avance: proyecto.obra_avance
-          }]
-        : [];
+    // Si la ficha lateral está abierta, se refresca con los datos nuevos
+    const abierto = this.seleccionado();
+    if (abierto) this.seleccionado.set(datos.proyectos.find((p) => p.id === abierto.id) ?? null);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private normalizar(p: any): Proyecto {
     return {
-      id: Number(proyecto.id ?? proyecto.id_proyecto),
-      id_cliente: proyecto.id_cliente
-        ? Number(proyecto.id_cliente)
-        : undefined,
-      id_arquitecto: proyecto.id_arquitecto == null
-        ? null
-        : Number(proyecto.id_arquitecto),
-      nombre: proyecto.nombre ?? '',
-      descripcion: proyecto.descripcion ?? '',
-      cliente: proyecto.cliente ?? '',
-      arquitecto: proyecto.arquitecto ?? '',
-      ubicacion: proyecto.ubicacion ?? proyecto.direccion_obra ?? '',
-      estado: proyecto.estado ?? 'Planeacion',
-      fecha_inicio: this.normalizarFecha(proyecto.fecha_inicio),
-      fecha_fin: this.normalizarFecha(
-        proyecto.fecha_fin ?? proyecto.fecha_fin_estimada
-      ),
-      id_obra: proyecto.id_obra == null ? null : Number(proyecto.id_obra),
-      obra_nombre: proyecto.obra_nombre ?? '',
-      obra_estado: proyecto.obra_estado ?? '',
-      obra_avance: Number(proyecto.obra_avance || 0),
-      obra_descripcion: proyecto.obra_descripcion ?? '',
-      obra_fecha_inicio: this.normalizarFecha(proyecto.obra_fecha_inicio),
-      obra_fecha_fin_estimada: this.normalizarFecha(proyecto.obra_fecha_fin_estimada),
-      obras: obras.map((obra: any) => ({
-        id_obra: Number(obra.id_obra), id_proyecto: Number(obra.id_proyecto),
-        nombre: obra.nombre ?? '', descripcion: obra.descripcion ?? '', estado: obra.estado ?? 'Pendiente',
-        fecha_inicio: this.normalizarFecha(obra.fecha_inicio),
-        fecha_fin_estimada: this.normalizarFecha(obra.fecha_fin_estimada),
-        fecha_fin_real: this.normalizarFecha(obra.fecha_fin_real),
-        porcentaje_avance: Number(obra.porcentaje_avance || 0)
+      id: Number(p.id ?? p.id_proyecto),
+      id_cliente: p.id_cliente ? Number(p.id_cliente) : null,
+      id_arquitecto: p.id_arquitecto ? Number(p.id_arquitecto) : null,
+      nombre: p.nombre ?? '',
+      descripcion: p.descripcion ?? '',
+      cliente: p.cliente ?? '',
+      arquitecto: p.arquitecto ?? '',
+      ubicacion: p.ubicacion ?? '',
+      estado: p.estado ?? 'Pendiente',
+      fecha_inicio: this.fechaISO(p.fecha_inicio),
+      fecha_fin: this.fechaISO(p.fecha_fin),
+      porcentaje_avance: Number(p.porcentaje_avance) || 0,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      obras: (Array.isArray(p.obras) ? p.obras : []).map((o: any) => ({
+        id_obra: Number(o.id_obra),
+        id_proyecto: Number(o.id_proyecto),
+        nombre: o.nombre ?? '',
+        descripcion: o.descripcion ?? '',
+        estado: o.estado ?? 'Pendiente',
+        fecha_inicio: this.fechaISO(o.fecha_inicio),
+        fecha_fin_estimada: this.fechaISO(o.fecha_fin_estimada),
+        porcentaje_avance: Number(o.porcentaje_avance) || 0
       }))
     };
   }
 
-  private quitarProyectosDuplicados(proyectos: Proyecto[]): Proyecto[] {
-    const unicos = new Map<number, Proyecto>();
-    for (const proyecto of proyectos) {
-      const existente = unicos.get(Number(proyecto.id));
-      if (!existente) {
-        unicos.set(Number(proyecto.id), { ...proyecto, obras: [...(proyecto.obras || [])] });
-        continue;
-      }
-      const obras = new Map<number, ObraRelacionada>();
-      for (const obra of [...(existente.obras || []), ...(proyecto.obras || [])]) {
-        obras.set(Number(obra.id_obra), obra);
-      }
-      existente.obras = [...obras.values()];
-    }
-    return [...unicos.values()];
-  }
-
-  private normalizarFecha(fecha: any): string {
-    if (!fecha) {
-      return '';
-    }
-
-    // Permite usar directamente las fechas en inputs type="date"
-    if (typeof fecha === 'string') {
-      return fecha.substring(0, 10);
-    }
-
-    if (fecha instanceof Date) {
-      const anio = fecha.getFullYear();
-      const mes = String(fecha.getMonth() + 1).padStart(2, '0');
-      const dia = String(fecha.getDate()).padStart(2, '0');
-
-      return `${anio}-${mes}-${dia}`;
-    }
-
+  /** Deja la fecha como "2026-10-22" (sirve para los input type="date") */
+  private fechaISO(valor: unknown): string {
+    if (!valor) return '';
+    if (typeof valor === 'string') return valor.substring(0, 10);
+    if (valor instanceof Date) return valor.toISOString().substring(0, 10);
     return '';
   }
 
-  // ========================================
-  // BUSCAR PROYECTOS
-  // ========================================
+  // =========================================================
+  // INDEXED DB (copia para modo sin conexión)
+  // =========================================================
 
-  buscar(): void {
-    const texto = this.busqueda.toLowerCase().trim();
+  private abrirDB(): Promise<IDBDatabase | null> {
+    return new Promise((resolve) => {
+      if (!('indexedDB' in window)) return resolve(null);
 
-    if (!texto) {
-      this.proyectosFiltrados = [...this.proyectos];
-      return;
-    }
-
-    this.proyectosFiltrados = this.proyectos.filter(proyecto =>
-      proyecto.nombre.toLowerCase().includes(texto) ||
-      proyecto.cliente.toLowerCase().includes(texto) ||
-      proyecto.ubicacion.toLowerCase().includes(texto) ||
-      proyecto.estado.toLowerCase().includes(texto)
-    );
+      const peticion = indexedDB.open(DB_NOMBRE, DB_VERSION);
+      peticion.onupgradeneeded = () => {
+        if (!peticion.result.objectStoreNames.contains(DB_STORE)) {
+          peticion.result.createObjectStore(DB_STORE);
+        }
+      };
+      peticion.onsuccess = () => {
+        this.db = peticion.result;
+        resolve(peticion.result);
+      };
+      peticion.onerror = () => resolve(null);
+      peticion.onblocked = () => resolve(null);
+    });
   }
 
-  // ========================================
-  // VER PROYECTO
-  // ========================================
+  private async guardarCopia(datos: DatosProyectos): Promise<void> {
+    const db = await this.dbLista;
+    if (!db) return;
+    try {
+      db.transaction(DB_STORE, 'readwrite').objectStore(DB_STORE).put(datos, DB_CLAVE);
+    } catch (e) {
+      console.error('No se pudo guardar la copia de proyectos:', e);
+    }
+  }
+
+  private async cargarCopia(): Promise<void> {
+    this.cargando.set(true);
+    const db = await this.dbLista;
+
+    const sinDatos = () => {
+      this.error.set('No hay conexión con el servidor y este dispositivo aún no tiene proyectos guardados.');
+      this.cargando.set(false);
+    };
+    if (!db) return sinDatos();
+
+    try {
+      const peticion = db.transaction(DB_STORE, 'readonly').objectStore(DB_STORE).get(DB_CLAVE);
+      peticion.onsuccess = () => {
+        const datos = peticion.result as DatosProyectos | undefined;
+        datos?.proyectos ? this.mostrar(datos, true) : sinDatos();
+      };
+      peticion.onerror = sinDatos;
+    } catch {
+      sinDatos();
+    }
+  }
+
+  // =========================================================
+  // FILTROS Y NAVEGACIÓN
+  // =========================================================
+
+  buscar(texto: string): void {
+    this.busqueda.set(texto);
+    this.pagina.set(1);
+  }
+
+  filtrar(estado: string): void {
+    this.filtroEstado.set(estado);
+    this.pagina.set(1);
+  }
+
+  cambiarPagina(paso: number): void {
+    this.pagina.set(Math.min(this.totalPaginas(), Math.max(1, this.pagina() + paso)));
+  }
+
+  alternarMenu(id: number, evento: Event): void {
+    evento.stopPropagation();
+    this.menuAbierto.set(this.menuAbierto() === id ? null : id);
+  }
 
   verProyecto(proyecto: Proyecto): void {
-    this.proyectoSeleccionado = {
-      ...proyecto
-    };
-
-    this.creandoProyecto = false;
-    this.modoEdicion = false;
-    this.mostrarModal = true;
-
-    this.changeDetector.detectChanges();
+    this.menuAbierto.set(null);
+    this.seleccionado.set(proyecto);
   }
 
-  // ========================================
-  // EDITAR PROYECTO
-  // ========================================
-
-  editarProyecto(proyecto: Proyecto): void {
-    if (!this.conectado) {
-      alert('No tienes conexión a internet. No se puede editar el proyecto.');
-      return;
-    }
-    this.proyectoSeleccionado = {
-      ...proyecto
-    };
-
-    this.creandoProyecto = false;
-    this.modoEdicion = true;
-    this.mostrarModal = true;
-
-    this.changeDetector.detectChanges();
-  }
-
-  nuevoProyecto(): void {
-    if (!this.conectado) { alert('Conéctate a internet para crear proyectos.'); return; }
-    this.proyectoSeleccionado = this.proyectoVacio();
-    this.creandoProyecto = true;
-    this.modoEdicion = true;
-    this.mostrarModal = true;
-    this.cargarOpciones();
-  }
-
-  verObraProyecto(proyecto: Proyecto): void {
-    this.proyectoObraSeleccionado = { ...proyecto };
-    this.obrasDelProyecto = [...(proyecto.obras || [])];
-    this.obraActivaId = null;
-    this.obraNueva = { ...this.obraVacia(), id_proyecto: proyecto.id, nombre: proyecto.nombre };
-    this.modoEdicionObra = false;
-    this.mostrarModalObra = true;
-  }
-
-  abrirRegistrosProyecto(proyecto: Proyecto, apartado: 'obras' | 'cotizaciones' | 'contratos' | 'pagos'): void {
+  /** Abre cotizaciones, contratos, pagos u obras filtrados por el proyecto */
+  irA(apartado: 'obras' | 'cotizaciones' | 'contratos' | 'pagos', proyecto: Proyecto): void {
     this.router.navigate([`/admin/${apartado}`], {
       queryParams: { id_proyecto: proyecto.id, proyecto: proyecto.nombre }
     });
   }
 
-  seleccionarObraProyecto(obra: ObraRelacionada): void {
-    this.obraActivaId = obra.id_obra;
-    this.obraNueva = {
-      id: obra.id_obra, id_proyecto: obra.id_proyecto, nombre: obra.nombre,
-      descripcion: obra.descripcion, estado: obra.estado, fecha_inicio: obra.fecha_inicio,
-      fecha_fin_estimada: obra.fecha_fin_estimada, porcentaje_avance: obra.porcentaje_avance
-    };
-    this.modoEdicionObra = false;
-  }
+  // =========================================================
+  // PROYECTOS: crear, editar, eliminar
+  // =========================================================
 
-  editarObraDeLista(obra: ObraRelacionada): void {
-    if (!this.conectado) { alert('Conéctate a internet para editar obras.'); return; }
-    this.seleccionarObraProyecto(obra);
-    this.modoEdicionObra = true;
-  }
-
-  borrarObraDeLista(obra: ObraRelacionada): void {
-    this.seleccionarObraProyecto(obra);
-    this.eliminarObraProyecto();
-  }
-
-  crearObraProyecto(): void {
-    if (!this.conectado) { alert('Con?ctate a internet para crear obras.'); return; }
-    if (!this.proyectoObraSeleccionado) return;
-    this.obraActivaId = null;
-    this.obraNueva = { ...this.obraVacia(), id_proyecto: this.proyectoObraSeleccionado.id, nombre: this.proyectoObraSeleccionado.nombre };
-    this.modoEdicionObra = true;
-  }
-
-  editarObraProyecto(): void {
-    if (!this.conectado) { alert('Con?ctate a internet para editar obras.'); return; }
-    this.modoEdicionObra = true;
-  }
-
-  cancelarEdicionObra(): void {
-    const obra = this.obrasDelProyecto.find(item => item.id_obra === this.obraActivaId);
-    if (obra) this.seleccionarObraProyecto(obra);
-    else if (this.proyectoObraSeleccionado) {
-      this.obraNueva = { ...this.obraVacia(), id_proyecto: this.proyectoObraSeleccionado.id, nombre: this.proyectoObraSeleccionado.nombre };
-      this.modoEdicionObra = false;
-    }
-  }
-
-  guardarObraProyecto(): void {
-    if (!this.conectado) { alert('Con?ctate a internet para guardar la obra.'); return; }
-    const obra = this.obraNueva;
-    if (!obra.id_proyecto || !obra.nombre.trim()) { alert('El nombre de la obra es obligatorio.'); return; }
-    if (obra.porcentaje_avance < 0 || obra.porcentaje_avance > 100) { alert('El avance debe estar entre 0 y 100.'); return; }
-    if (this.guardandoObra) return;
-    const creandoObra = !obra.id;
-    this.guardandoObra = true;
-    const datos = { ...obra, fecha_inicio: obra.fecha_inicio || null, fecha_fin_estimada: obra.fecha_fin_estimada || null, fecha_fin_real: null };
-    const url = 'http://localhost:3000/api/routes/obras';
-    const solicitud = obra.id ? this.http.put<RespuestaObras>(url + '/' + obra.id, datos) : this.http.post<RespuestaObras>(url, datos);
-    solicitud.subscribe({
-      next: respuesta => {
-        this.guardandoObra = false;
-        if (!respuesta.success) { alert(respuesta.mensaje || 'No se pudo guardar la obra.'); return; }
-        if (respuesta.id) this.obraNueva.id = respuesta.id;
-        const proyecto = this.proyectoObraSeleccionado;
-        const guardada: ObraRelacionada = {
-          id_obra: this.obraNueva.id!, id_proyecto: obra.id_proyecto, nombre: obra.nombre,
-          descripcion: obra.descripcion, estado: obra.estado, fecha_inicio: obra.fecha_inicio,
-          fecha_fin_estimada: obra.fecha_fin_estimada, fecha_fin_real: '', porcentaje_avance: obra.porcentaje_avance
-        };
-        const indice = this.obrasDelProyecto.findIndex(item => item.id_obra === guardada.id_obra);
-        if (indice >= 0) this.obrasDelProyecto[indice] = guardada;
-        else this.obrasDelProyecto.push(guardada);
-        this.obraActivaId = guardada.id_obra;
-        if (proyecto) {
-          proyecto.obras = [...this.obrasDelProyecto];
-          proyecto.id_obra = proyecto.obras[0]?.id_obra ?? null;
-          proyecto.obra_nombre = proyecto.obras[0]?.nombre ?? '';
-          const original = this.proyectos.find(p => p.id === proyecto.id);
-          if (original) original.obras = [...this.obrasDelProyecto];
-        }
-        this.modoEdicionObra = false; this.cargarProyectos();
-        if (creandoObra) this.cerrarModalObra();
-        alert('Obra guardada correctamente.'); this.changeDetector.detectChanges();
-      },
-      error: error => { this.guardandoObra = false; if (error.status === 0) this.conectado = false; alert(error.error?.mensaje || 'No se pudo guardar la obra.'); this.changeDetector.detectChanges(); }
+  nuevoProyecto(): void {
+    if (!this.conexion.enLinea()) return;
+    this.formProyecto.set({
+      id: null, id_cliente: null, id_arquitecto: null, nombre: '', descripcion: '',
+      ubicacion: '', estado: 'Pendiente', fecha_inicio: '', fecha_fin: ''
     });
   }
 
-  eliminarObraProyecto(): void {
-    if (!this.conectado) { alert('Con?ctate a internet para eliminar obras.'); return; }
-    if (!this.obraNueva.id) return;
-    if (!confirm('?Seguro que deseas eliminar la obra "' + this.obraNueva.nombre + '"?')) return;
-    this.http.delete<RespuestaObras>('http://localhost:3000/api/routes/obras/' + this.obraNueva.id).subscribe({
-      next: respuesta => {
-        if (!respuesta.success) { alert(respuesta.mensaje || 'No se pudo eliminar la obra.'); return; }
-        this.obrasDelProyecto = this.obrasDelProyecto.filter(obra => obra.id_obra !== this.obraNueva.id);
-        if (this.proyectoObraSeleccionado) {
-          this.proyectoObraSeleccionado.obras = [...this.obrasDelProyecto];
-          const original = this.proyectos.find(p => p.id === this.proyectoObraSeleccionado?.id);
-          if (original) original.obras = [...this.obrasDelProyecto];
-        }
-        this.obraActivaId = null;
-        this.obraNueva = { ...this.obraVacia(), id_proyecto: this.proyectoObraSeleccionado?.id || 0, nombre: this.proyectoObraSeleccionado?.nombre || '' };
-        this.modoEdicionObra = false; this.cargarProyectos();
-        alert('Obra eliminada correctamente.');
-      },
-      error: error => { if (error.status === 0) this.conectado = false; alert(error.error?.mensaje || 'No se pudo eliminar la obra.'); }
+  editarProyecto(p: Proyecto): void {
+    if (!this.conexion.enLinea()) return;
+    this.menuAbierto.set(null);
+    this.formProyecto.set({
+      id: p.id, id_cliente: p.id_cliente, id_arquitecto: p.id_arquitecto, nombre: p.nombre,
+      descripcion: p.descripcion, ubicacion: p.ubicacion, estado: p.estado,
+      fecha_inicio: p.fecha_inicio, fecha_fin: p.fecha_fin
     });
   }
 
-  // ========================================
-  // GUARDAR CAMBIOS
-  // ========================================
+  guardarProyecto(): void {
+    const form = this.formProyecto();
+    if (!form || this.guardando()) return;
 
-  guardarCambios(): void {
-    if (!this.conectado) {
-      alert('No tienes conexión a internet. No se pueden guardar los cambios.');
-      return;
+    if (!form.nombre.trim()) return this.avisos.error('Escribe el nombre del proyecto.');
+    if (!form.id_cliente) return this.avisos.error('Selecciona el cliente del proyecto.');
+    if (form.fecha_inicio && form.fecha_fin && form.fecha_fin < form.fecha_inicio) {
+      return this.avisos.error('La fecha de entrega no puede ser antes del inicio.');
     }
-    const proyecto = this.proyectoSeleccionado;
-
-    if (!this.creandoProyecto && (!proyecto.id || proyecto.id < 1)) {
-      alert('El identificador del proyecto no es válido.');
-      return;
-    }
-
-    if (!proyecto.nombre.trim()) {
-      alert('El nombre del proyecto es obligatorio.');
-      return;
-    }
-
-    if (!proyecto.id_cliente) {
-      alert('Selecciona el cliente del proyecto.');
-      return;
-    }
-
-    if (this.guardando) {
-      return;
-    }
-
-    this.guardando = true;
 
     const datos = {
-      id_cliente: proyecto.id_cliente,
-      id_arquitecto: proyecto.id_arquitecto,
-      nombre: proyecto.nombre.trim(),
-      descripcion: proyecto.descripcion,
-      ubicacion: proyecto.ubicacion,
-      estado: proyecto.estado,
-      fecha_inicio: proyecto.fecha_inicio || null,
-      fecha_fin: proyecto.fecha_fin || null
+      id_cliente: form.id_cliente,
+      id_arquitecto: form.id_arquitecto || null,
+      nombre: form.nombre.trim(),
+      descripcion: form.descripcion,
+      ubicacion: form.ubicacion,
+      estado: form.estado,
+      fecha_inicio: form.fecha_inicio || null,
+      fecha_fin: form.fecha_fin || null
     };
 
-    const solicitud = this.creandoProyecto
-      ? this.http.post<RespuestaProyectos>(this.API_URL, datos)
-      : this.http.put<RespuestaProyectos>(`${this.API_URL}/${proyecto.id}`, datos);
-    solicitud.subscribe({
+    this.guardando.set(true);
+    const peticion = form.id
+      ? this.http.put<Respuesta>(`${API}/proyectos/${form.id}`, datos)
+      : this.http.post<Respuesta>(`${API}/proyectos`, datos);
+
+    peticion.subscribe({
       next: (respuesta) => {
-        console.log('Respuesta actualización:', respuesta);
-
-        this.guardando = false;
-
-        if (respuesta.success) {
-          alert(this.creandoProyecto ? 'Proyecto creado correctamente.' : 'Proyecto actualizado correctamente.');
-          this.mostrarModal = false;
-          this.creandoProyecto = false;
-          this.cargarProyectos();
-        } else {
-          alert(respuesta.mensaje || 'No se pudo actualizar el proyecto.');
-        }
-
-        this.changeDetector.detectChanges();
+        this.guardando.set(false);
+        if (!respuesta.success) return this.avisos.error(respuesta.mensaje || 'No se pudo guardar el proyecto.');
+        this.avisos.exito(form.id ? 'Proyecto actualizado.' : 'Proyecto creado.');
+        this.formProyecto.set(null);
+        this.consultarServidor();
       },
-
-      error: (error) => {
-        console.error('Error al actualizar proyecto:', error);
-
-        if (error.status === 0) {
-          this.conectado = false;
-        }
-
-        this.guardando = false;
-
-        alert(
-          error.error?.mensaje ||
-          'No se pudo actualizar el proyecto. Comprueba los datos.'
-        );
-
-        this.changeDetector.detectChanges();
+      error: (e) => {
+        this.guardando.set(false);
+        this.avisos.error(e.error?.mensaje || 'No se pudo guardar el proyecto.');
       }
     });
   }
 
-  // ========================================
-  // ELIMINAR PROYECTO
-  // ========================================
+  async eliminarProyecto(p: Proyecto): Promise<void> {
+    if (!this.conexion.enLinea()) return;
+    this.menuAbierto.set(null);
 
-  eliminarProyecto(proyecto: Proyecto): void {
-    if (!this.conectado) {
-      alert('No tienes conexión a internet. No se puede eliminar el proyecto.');
-      return;
-    }
-    const confirmar = confirm(
-      `¿Seguro que deseas eliminar el proyecto "${proyecto.nombre}"?`
-    );
+    const aceptado = await this.avisos.confirmar({
+      titulo: 'Eliminar proyecto',
+      mensaje: `Se eliminará "${p.nombre}". Esta acción no se puede deshacer.`,
+      textoAceptar: 'Eliminar',
+      peligro: true
+    });
+    if (!aceptado) return;
 
-    if (!confirmar) {
-      return;
-    }
-
-    if (!proyecto.id || proyecto.id < 1) {
-      alert('El identificador del proyecto no es válido.');
-      return;
-    }
-
-    this.http.delete<RespuestaProyectos>(
-      `${this.API_URL}/${proyecto.id}`
-    ).subscribe({
+    this.http.delete<Respuesta>(`${API}/proyectos/${p.id}`).subscribe({
       next: (respuesta) => {
-        console.log('Respuesta eliminación:', respuesta);
-
-        if (respuesta.success) {
-          alert('Proyecto eliminado correctamente.');
-          this.cargarProyectos();
-        } else {
-          alert(respuesta.mensaje || 'No se pudo eliminar el proyecto.');
-        }
+        if (!respuesta.success) return this.avisos.error(respuesta.mensaje || 'No se pudo eliminar el proyecto.');
+        this.avisos.exito('Proyecto eliminado.');
+        if (this.seleccionado()?.id === p.id) this.seleccionado.set(null);
+        this.consultarServidor();
       },
+      // El backend avisa si tiene obras, cotizaciones o contratos relacionados
+      error: (e) => this.avisos.error(e.error?.mensaje || 'No se pudo eliminar el proyecto.')
+    });
+  }
 
-      error: (error) => {
-        console.error('Error al eliminar proyecto:', error);
+  // =========================================================
+  // OBRAS DEL PROYECTO: crear, editar, eliminar
+  // =========================================================
 
-        if (error.status === 0) {
-          this.conectado = false;
-          this.changeDetector.detectChanges();
-        }
+  nuevaObra(p: Proyecto): void {
+    if (!this.conexion.enLinea()) return;
+    this.formObra.set({
+      id: null, id_proyecto: p.id, nombre: '', descripcion: '', estado: 'Pendiente',
+      fecha_inicio: '', fecha_fin_estimada: '', porcentaje_avance: 0
+    });
+  }
 
-        alert(
-          error.error?.mensaje ||
-          'No se pudo eliminar el proyecto.'
-        );
+  editarObra(o: ObraProyecto): void {
+    if (!this.conexion.enLinea()) return;
+    this.formObra.set({
+      id: o.id_obra, id_proyecto: o.id_proyecto, nombre: o.nombre, descripcion: o.descripcion,
+      estado: o.estado, fecha_inicio: o.fecha_inicio, fecha_fin_estimada: o.fecha_fin_estimada,
+      porcentaje_avance: o.porcentaje_avance
+    });
+  }
+
+  guardarObra(): void {
+    const form = this.formObra();
+    if (!form || this.guardando()) return;
+
+    const avance = Number(form.porcentaje_avance);
+    if (!form.nombre.trim()) return this.avisos.error('Escribe el nombre de la obra.');
+    if (!Number.isFinite(avance) || avance < 0 || avance > 100) return this.avisos.error('El avance debe estar entre 0 y 100.');
+
+    const datos = {
+      ...form,
+      nombre: form.nombre.trim(),
+      porcentaje_avance: avance,
+      fecha_inicio: form.fecha_inicio || null,
+      fecha_fin_estimada: form.fecha_fin_estimada || null,
+      fecha_fin_real: null
+    };
+
+    this.guardando.set(true);
+    const peticion = form.id
+      ? this.http.put<Respuesta>(`${API}/obras/${form.id}`, datos)
+      : this.http.post<Respuesta>(`${API}/obras`, datos);
+
+    peticion.subscribe({
+      next: (respuesta) => {
+        this.guardando.set(false);
+        if (!respuesta.success) return this.avisos.error(respuesta.mensaje || 'No se pudo guardar la obra.');
+        this.avisos.exito(form.id ? 'Obra actualizada.' : 'Obra agregada al proyecto.');
+        this.formObra.set(null);
+        this.consultarServidor();
+      },
+      error: (e) => {
+        this.guardando.set(false);
+        this.avisos.error(e.error?.mensaje || 'No se pudo guardar la obra.');
       }
     });
   }
 
+  async eliminarObra(o: ObraProyecto): Promise<void> {
+    if (!this.conexion.enLinea()) return;
 
-  // ========================================
-  // CERRAR MODAL
-  // ========================================
+    const aceptado = await this.avisos.confirmar({
+      titulo: 'Eliminar obra',
+      mensaje: `Se eliminará la obra "${o.nombre}".`,
+      textoAceptar: 'Eliminar',
+      peligro: true
+    });
+    if (!aceptado) return;
 
-  cerrarModal(): void {
-    this.mostrarModal = false;
-    this.creandoProyecto = false;
-    this.proyectoSeleccionado = this.proyectoVacio();
-
-    this.changeDetector.detectChanges();
+    this.http.delete<Respuesta>(`${API}/obras/${o.id_obra}`).subscribe({
+      next: (respuesta) => {
+        if (!respuesta.success) return this.avisos.error(respuesta.mensaje || 'No se pudo eliminar la obra.');
+        this.avisos.exito('Obra eliminada.');
+        this.consultarServidor();
+      },
+      error: (e) => this.avisos.error(e.error?.mensaje || 'No se pudo eliminar la obra.')
+    });
   }
 
-  cerrarModalObra(): void { this.mostrarModalObra = false; this.obraNueva = this.obraVacia(); this.proyectoObraSeleccionado = null; this.obrasDelProyecto = []; this.obraActivaId = null; this.modoEdicionObra = false; }
+  // =========================================================
+  // FORMATOS (se usan en el HTML)
+  // =========================================================
 
-  private obraVacia(): NuevaObra {
-    return { id: null, id_proyecto: 0, nombre: '', descripcion: '', estado: 'Pendiente', fecha_inicio: '', fecha_fin_estimada: '', porcentaje_avance: 0 };
+  /** Avance del proyecto: promedio de sus obras (o el del proyecto si no tiene obras) */
+  avance(p: Proyecto): number {
+    if (!p.obras.length) return Math.round(p.porcentaje_avance);
+    const suma = p.obras.reduce((total, o) => total + o.porcentaje_avance, 0);
+    return Math.round(suma / p.obras.length);
   }
 
-  // ========================================
-  // PROYECTO VACÍO
-  // ========================================
-
-  proyectoVacio(): Proyecto {
-    return {
-      id: 0,
-      id_cliente: undefined,
-      id_arquitecto: null,
-      nombre: '',
-      descripcion: '',
-      cliente: '',
-      ubicacion: '',
-      estado: 'Planeacion',
-      fecha_inicio: '',
-      fecha_fin: '',
-      id_obra: null,
-      obra_nombre: '',
-      obra_estado: '',
-      obra_avance: 0
+  /** Clase del chip de color según el estado */
+  claseEstado(estado: string): string {
+    const clases: Record<string, string> = {
+      'En proceso': 'sg-chip--proceso',
+      'En construccion': 'sg-chip--proceso',
+      'Completado': 'sg-chip--activo',
+      'Finalizada': 'sg-chip--activo',
+      'Pausado': 'sg-chip--pausado',
+      'Pausada': 'sg-chip--pausado',
+      'Cancelado': 'sg-chip--cancelado',
+      'Cancelada': 'sg-chip--cancelado'
     };
+    return clases[estado] ?? '';
+  }
+
+  /** "En construccion" (como viene de la BD) → "En construcción" */
+  estadoTexto(estado: string): string {
+    return estado.replace('construccion', 'construcción');
+  }
+
+  /** id 3 → "PRY-003" */
+  codigo(id: number): string {
+    return `PRY-${String(id).padStart(3, '0')}`;
+  }
+
+  codigoObra(id: number): string {
+    return `OBR-${String(id).padStart(3, '0')}`;
+  }
+
+  dosDigitos(valor: number): string {
+    return String(valor).padStart(2, '0');
+  }
+
+  /** "2026-10-22" → "22 OCT 2026" */
+  fecha(valor: string): string {
+    if (!valor) return '—';
+    const [anio, mes, dia] = valor.split('-').map(Number);
+    return new Intl.DateTimeFormat('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+      .format(new Date(anio, mes - 1, dia))
+      .replace(/[.,]/g, '')
+      .replace(/ de /g, ' ')
+      .toUpperCase();
+  }
+
+  /** Fecha y hora de la copia guardada: "16 OCT 2026 · 19:30" */
+  momentoCopia(): string {
+    const marca = this.guardadoEn();
+    if (!marca) return '';
+    const d = new Date(marca);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const hora = d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+    return `${this.fecha(iso)} · ${hora}`;
   }
 }

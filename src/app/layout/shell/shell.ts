@@ -2,9 +2,10 @@ import { Component, OnInit, PLATFORM_ID, computed, inject, signal } from '@angul
 import { isPlatformBrowser } from '@angular/common';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
-import { Icono } from '../../components/icono/icono';
-import { ConexionService } from '../../services/conexion.service';
-import { PwaInstallService } from '../../services/pwa-install.service';
+import { Icono } from '../../shared/icono/icono';
+import { ConexionService } from '../../core/services/conexion.service';
+import { PwaInstallService } from '../../core/services/pwa-install.service';
+import { AvisosService } from '../../core/services/avisos.service';
 import { MENUS, Rol } from './menus';
 
 interface UsuarioSesion {
@@ -35,6 +36,7 @@ export class Shell implements OnInit {
 
   readonly conexion = inject(ConexionService);
   readonly pwa = inject(PwaInstallService);
+  readonly avisos = inject(AvisosService);
 
   readonly rol = signal<Rol>('admin');
   readonly config = computed(() => MENUS[this.rol()]);

@@ -1,1023 +1,340 @@
-import {
-  Component,
-  OnInit,
-  OnDestroy,
-  signal
-} from '@angular/core';
-
+import { Component, OnDestroy, PLATFORM_ID, computed, effect, inject, signal, untracked } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
+import { catchError, forkJoin, of } from 'rxjs';
+import { Icono } from '../../../shared/icono/icono';
+import { ConexionService } from '../../../core/services/conexion.service';
 
+const API = 'http://localhost:3000/api/routes';
 
-interface ResumenRespuesta {
-  success?: boolean;
+// IndexedDB: misma base que usa todo SIGOA (se borra al cerrar sesión)
+const DB_NOMBRE = 'SIGOA_DB';
+const DB_VERSION = 1;
+const DB_STORE = 'resumen';
+const DB_CLAVE = 'admin-inicio';
 
-  proyectos?: {
-    total?: number;
-    enProgreso?: number;
-  };
-
-  obras?: {
-    total?: number;
-    enConstruccion?: number;
-  };
-
-  cotizaciones?: {
-    total?: number;
-    pendientes?: number;
-  };
-
-  contratos?: {
-    total?: number;
-    activos?: number;
-  };
-
-  pagos?: {
-    pendientes?: number;
-    montoPendiente?: number;
-  };
-
-  avancePromedio?: number;
+interface Resumen {
+  proyectos: { total: number; enProgreso: number };
+  obras: { total: number; enConstruccion: number };
+  cotizaciones: { total: number; pendientes: number };
+  contratos: { total: number; activos: number };
+  pagos: { pendientes: number; montoPendiente: number };
+  avancePromedio: number;
 }
 
+interface Obra {
+  id: number;
+  nombre: string;
+  proyecto: string;
+  cliente: string;
+  estado: string;
+  fecha_inicio: string | null;
+  fecha_fin_estimada: string | null;
+  porcentaje_avance: number;
+}
+
+/** Lo que se guarda en IndexedDB para consultar sin conexión */
+interface DatosInicio {
+  resumen: Resumen;
+  obras: Obra[];
+  guardadoEn: number;
+}
+
+interface FechaProxima {
+  fecha: Date;
+  evento: string;
+  obra: string;
+  codigo: string;
+}
+
+const RESUMEN_VACIO: Resumen = {
+  proyectos: { total: 0, enProgreso: 0 },
+  obras: { total: 0, enConstruccion: 0 },
+  cotizaciones: { total: 0, pendientes: 0 },
+  contratos: { total: 0, activos: 0 },
+  pagos: { pendientes: 0, montoPendiente: 0 },
+  avancePromedio: 0
+};
+
+/**
+ * INICIO · ADMINISTRADOR
+ * Tablero con el estado general del despacho:
+ *  - Indicadores (proyectos, obras, cotizaciones, pagos)
+ *  - Avance de las obras en curso
+ *  - Próximas fechas (inicios y entregas estimadas)
+ * Con conexión consulta la API y guarda una copia en IndexedDB.
+ * Sin conexión muestra la última copia guardada (modo consulta).
+ */
 @Component({
   selector: 'app-inicio',
   standalone: true,
-
-  imports: [
-    
-    RouterLink
-  ],
-
+  imports: [RouterLink, Icono],
   templateUrl: './inicio.html',
   styleUrl: './inicio.css'
 })
-export class InicioComponent implements OnInit, OnDestroy {
+export class InicioComponent implements OnDestroy {
+  private readonly http = inject(HttpClient);
+  private readonly esNavegador = isPlatformBrowser(inject(PLATFORM_ID));
+  readonly conexion = inject(ConexionService);
 
-  // =========================================
-  // ESTADOS
-  // =========================================
+  // ---------- Estado de la pantalla ----------
+  readonly cargando = signal(true);
+  readonly error = signal('');
+  readonly resumen = signal<Resumen>(RESUMEN_VACIO);
+  readonly obras = signal<Obra[]>([]);
+  /** true cuando lo que se ve viene de IndexedDB (sin conexión o servidor apagado) */
+  readonly desdeCopia = signal(false);
+  readonly guardadoEn = signal<number | null>(null);
 
-  cargando = signal(true);
+  // ---------- Encabezado ----------
+  readonly nombre = signal('Administrador');
+  readonly saludo = this.calcularSaludo();
+  readonly fechaHoy = this.formatoFecha(new Date(), true);
 
-  error = '';
+  // ---------- Datos calculados ----------
+  /** Obras que siguen en curso, de mayor a menor avance (máx. 5) */
+  readonly obrasEnCurso = computed(() =>
+    this.obras()
+      .filter((o) => !['Finalizada', 'Cancelada'].includes(o.estado))
+      .sort((a, b) => Number(b.porcentaje_avance) - Number(a.porcentaje_avance))
+      .slice(0, 5)
+  );
 
-  conectado = false;
+  /** Inicios y entregas estimadas que aún no llegan (máx. 5) */
+  readonly proximasFechas = computed<FechaProxima[]>(() => {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const fechas: FechaProxima[] = [];
 
+    for (const o of this.obras()) {
+      if (['Finalizada', 'Cancelada'].includes(o.estado)) continue;
+      const inicio = o.fecha_inicio ? new Date(o.fecha_inicio) : null;
+      const entrega = o.fecha_fin_estimada ? new Date(o.fecha_fin_estimada) : null;
 
-  // =========================================
-  // INFORMACIÓN
-  // =========================================
+      if (inicio && inicio >= hoy) {
+        fechas.push({ fecha: inicio, evento: 'Inicio de obra', obra: o.nombre, codigo: this.codigo(o.id) });
+      }
+      if (entrega && entrega >= hoy) {
+        fechas.push({ fecha: entrega, evento: 'Entrega estimada', obra: o.nombre, codigo: this.codigo(o.id) });
+      }
+    }
+    return fechas.sort((a, b) => a.fecha.getTime() - b.fecha.getTime()).slice(0, 5);
+  });
 
-  proyectos = {
-    total: 0,
-    enProgreso: 0
-  };
-
-  obras = {
-    total: 0,
-    enConstruccion: 0
-  };
-
-  cotizaciones = {
-    total: 0,
-    pendientes: 0
-  };
-
-  contratos = {
-    total: 0,
-    activos: 0
-  };
-
-  pagos = {
-    pendientes: 0,
-    montoPendiente: 0
-  };
-
-  avancePromedio = 0;
-
-
-  // =========================================
-  // INDEXED DB
-  // =========================================
+  /** Rayitas del medidor circular (como un transportador): una cada 9° */
+  readonly marcas = Array.from({ length: 40 }, (_, i) => i * 9);
 
   private db: IDBDatabase | null = null;
+  private dbLista: Promise<IDBDatabase | null> = Promise.resolve(null);
 
-  private readonly nombreDB = 'SIGOA_DB';
-
-  private readonly versionDB = 1;
-
-  private readonly nombreStore = 'resumen';
-
-
-  // =========================================
-  // CONSTRUCTOR
-  // =========================================
-
-  constructor(
-    private http: HttpClient
-  ) {}
-
-
-  // =========================================
-  // INICIO
-  // =========================================
-
-  ngOnInit(): void {
-
-    console.log('================================');
-    console.log('INICIANDO INICIO');
-    console.log('================================');
-
-
-    // =========================================
-    // COMPROBAR NAVEGADOR
-    // =========================================
-
-    if (
-      typeof window === 'undefined' ||
-      typeof navigator === 'undefined'
-    ) {
-
-      console.log(
-        'No estamos en navegador'
-      );
-
+  constructor() {
+    if (!this.esNavegador) {
       this.cargando.set(false);
-
       return;
     }
 
-
-    console.log(
-      'Estamos en navegador'
-    );
-
-
-    // =========================================
-    // COMPROBAR INTERNET
-    // =========================================
-
-    this.conectado = navigator.onLine;
-
-    console.log(
-      'Internet:',
-      this.conectado
-        ? 'CONECTADO'
-        : 'SIN CONEXIÓN'
-    );
-
-
-    // =========================================
-    // ESCUCHAR CAMBIOS DE INTERNET
-    // =========================================
-
-    window.addEventListener(
-      'online',
-      this.cuandoHayInternet
-    );
-
-    window.addEventListener(
-      'offline',
-      this.cuandoNoHayInternet
-    );
-
-
-    // =========================================
-    // ABRIR INDEXED DB
-    // =========================================
-
-    this.abrirIndexedDB()
-
-      .then(() => {
-
-        console.log(
-          'IndexedDB lista'
-        );
-
-
-        if (navigator.onLine) {
-
-          console.log(
-            'Hay internet → consultando API'
-          );
-
-          this.obtenerResumen();
-
-        } else {
-
-          console.log(
-            'Sin internet → cargando información local'
-          );
-
-          this.cargarResumenGuardado();
-        }
-
-      })
-
-      .catch((error) => {
-
-        console.error(
-          'Error abriendo IndexedDB:',
-          error
-        );
-
-
-        // =========================================
-        // SI INDEXEDDB FALLA PERO HAY INTERNET
-        // =========================================
-
-        if (navigator.onLine) {
-
-          console.log(
-            'IndexedDB falló, pero hay internet'
-          );
-
-          this.obtenerResumen();
-
-        } else {
-
-          console.log(
-            'No hay internet ni IndexedDB'
-          );
-
-          this.error =
-            'No hay conexión y no se pudieron cargar los datos locales.';
-
-          this.cargando.set(false);
-        }
-
-      });
-  }
-
-
-  // =========================================
-  // DESTRUCCIÓN
-  // =========================================
-
-  ngOnDestroy(): void {
-
-    if (
-      typeof window !== 'undefined'
-    ) {
-
-      window.removeEventListener(
-        'online',
-        this.cuandoHayInternet
-      );
-
-      window.removeEventListener(
-        'offline',
-        this.cuandoNoHayInternet
-      );
-    }
-
-
-    if (this.db) {
-
-      this.db.close();
-
-      this.db = null;
-    }
-  }
-
-
-  // =========================================
-  // INTERNET RECUPERADO
-  // =========================================
-
-  private cuandoHayInternet = (): void => {
-
-    console.log('================================');
-
-    console.log(
-      'INTERNET RECUPERADO'
-    );
-
-    console.log('================================');
-
-
-    this.conectado = true;
-
-    this.error = '';
-
-
-    // Volver a consultar información
-    this.obtenerResumen();
-  };
-
-
-  // =========================================
-  // INTERNET PERDIDO
-  // =========================================
-
-  private cuandoNoHayInternet = (): void => {
-
-    console.log('================================');
-
-    console.log(
-      'SIN INTERNET'
-    );
-
-    console.log('================================');
-
-
-    this.conectado = false;
-
-
-    // Cargar último resumen guardado
-    this.cargarResumenGuardado();
-  };
-
-
-  // =========================================
-  // ABRIR INDEXED DB
-  // =========================================
-
-  private abrirIndexedDB(): Promise<void> {
-
-    return new Promise((resolve, reject) => {
-
-      // =========================================
-      // COMPROBAR INDEXED DB
-      // =========================================
-
-      if (
-        typeof window === 'undefined' ||
-        !window.indexedDB
-      ) {
-
-        reject(
-          new Error(
-            'IndexedDB no está disponible'
-          )
-        );
-
-        return;
-      }
-
-
-      console.log(
-        'Abriendo IndexedDB...'
-      );
-
-
-      // =========================================
-      // ABRIR BASE DE DATOS
-      // =========================================
-
-      const request =
-        window.indexedDB.open(
-          this.nombreDB,
-          this.versionDB
-        );
-
-
-      // =========================================
-      // CREAR ESTRUCTURA
-      // =========================================
-
-      request.onupgradeneeded = () => {
-
-        console.log(
-          'Creando estructura de IndexedDB...'
-        );
-
-
-        const db = request.result;
-
-
-        if (
-          !db.objectStoreNames.contains(
-            this.nombreStore
-          )
-        ) {
-
-          db.createObjectStore(
-            this.nombreStore
-          );
-
-
-          console.log(
-            'Store resumen creado'
-          );
-        }
-      };
-
-
-      // =========================================
-      // INDEXED DB ABIERTA
-      // =========================================
-
-      request.onsuccess = () => {
-
-        this.db = request.result;
-
-
-        console.log(
-          'IndexedDB abierta correctamente'
-        );
-
-
-        resolve();
-      };
-
-
-      // =========================================
-      // ERROR
-      // =========================================
-
-      request.onerror = () => {
-
-        console.error(
-          'Error de IndexedDB:',
-          request.error
-        );
-
-
-        reject(
-          request.error
-        );
-      };
-
-
-      // =========================================
-      // BLOQUEADA
-      // =========================================
-
-      request.onblocked = () => {
-
-        console.error(
-          'IndexedDB está bloqueada'
-        );
-
-
-        reject(
-          new Error(
-            'IndexedDB está bloqueada'
-          )
-        );
-      };
+    try {
+      const usuario = JSON.parse(localStorage.getItem('usuario') || 'null');
+      if (usuario?.nombre) this.nombre.set(usuario.nombre);
+    } catch { /* sesión sin nombre: se queda "Administrador" */ }
+
+    this.dbLista = this.abrirDB();
+
+    // Cada vez que cambia la conexión: en línea → API, sin conexión → copia guardada
+    effect(() => {
+      const enLinea = this.conexion.enLinea();
+      untracked(() => (enLinea ? this.consultarServidor() : this.cargarCopia()));
     });
   }
 
+  ngOnDestroy(): void {
+    this.db?.close();
+  }
 
-  // =========================================
-  // CONSULTAR BACKEND
-  // =========================================
+  /** Botón "Reintentar" */
+  recargar(): void {
+    this.conexion.enLinea() ? this.consultarServidor() : this.cargarCopia();
+  }
 
-  private obtenerResumen(): void {
+  // =========================================================
+  // DATOS
+  // =========================================================
 
-    console.log('================================');
-
-    console.log(
-      'CONSULTANDO BACKEND'
-    );
-
-    console.log('================================');
-
-
+  private consultarServidor(): void {
     this.cargando.set(true);
+    this.error.set('');
 
-    this.error = '';
+    forkJoin({
+      resumen: this.http.get<Partial<Resumen>>(`${API}/admin/resumen`),
+      // Si la lista de obras falla, el tablero se muestra igual con los indicadores
+      obras: this.http.get<{ obras?: Obra[] }>(`${API}/obras`).pipe(catchError(() => of({ obras: [] })))
+    }).subscribe({
+      next: ({ resumen, obras }) => {
+        const datos: DatosInicio = {
+          resumen: this.normalizar(resumen),
+          obras: obras.obras ?? [],
+          guardadoEn: Date.now()
+        };
+        this.mostrar(datos, false);
+        this.guardarCopia(datos);
+      },
+      // Servidor apagado o error: se intenta con la copia guardada
+      error: () => this.cargarCopia()
+    });
+  }
 
+  private mostrar(datos: DatosInicio, desdeCopia: boolean): void {
+    this.resumen.set(datos.resumen);
+    this.obras.set(datos.obras);
+    this.guardadoEn.set(datos.guardadoEn);
+    this.desdeCopia.set(desdeCopia);
+    this.error.set('');
+    this.cargando.set(false);
+  }
 
-    this.http
-      .get<ResumenRespuesta>(
-        'http://localhost:3000/api/routes/admin/resumen'
-      )
+  private normalizar(r: Partial<Resumen>): Resumen {
+    const n = (v: unknown) => Number(v ?? 0) || 0;
+    return {
+      proyectos: { total: n(r.proyectos?.total), enProgreso: n(r.proyectos?.enProgreso) },
+      obras: { total: n(r.obras?.total), enConstruccion: n(r.obras?.enConstruccion) },
+      cotizaciones: { total: n(r.cotizaciones?.total), pendientes: n(r.cotizaciones?.pendientes) },
+      contratos: { total: n(r.contratos?.total), activos: n(r.contratos?.activos) },
+      pagos: { pendientes: n(r.pagos?.pendientes), montoPendiente: n(r.pagos?.montoPendiente) },
+      avancePromedio: n(r.avancePromedio)
+    };
+  }
 
-      .subscribe({
+  // =========================================================
+  // INDEXED DB (copia para modo sin conexión)
+  // =========================================================
 
-        // =====================================
-        // RESPUESTA CORRECTA
-        // =====================================
+  private abrirDB(): Promise<IDBDatabase | null> {
+    return new Promise((resolve) => {
+      if (!('indexedDB' in window)) return resolve(null);
 
-        next: (datos) => {
-
-          console.log('================================');
-
-          console.log(
-            'RESPUESTA DEL BACKEND'
-          );
-
-          console.log('================================');
-
-
-          console.log(
-            datos
-          );
-
-
-          // Aplicar datos
-          this.aplicarResumen(
-            datos
-          );
-
-
-          // =====================================
-          // GUARDAR PARA MODO OFFLINE
-          // =====================================
-
-          this.guardarResumen(
-            datos
-          );
-
-
-          // =====================================
-          // TERMINAR CARGA
-          // =====================================
-
-          this.error = '';
-
-          this.cargando.set(false);
-
-
-          console.log(
-            'Información cargada correctamente'
-          );
-        },
-
-
-        // =====================================
-        // ERROR DEL BACKEND
-        // =====================================
-
-        error: (error) => {
-
-          console.error(
-            'Error consultando backend:',
-            error
-          );
-
-
-          console.log(
-            'Intentando cargar datos de IndexedDB...'
-          );
-
-
-          // =====================================
-          // FALLBACK OFFLINE
-          // =====================================
-
-          this.cargarResumenGuardado();
+      const peticion = indexedDB.open(DB_NOMBRE, DB_VERSION);
+      peticion.onupgradeneeded = () => {
+        if (!peticion.result.objectStoreNames.contains(DB_STORE)) {
+          peticion.result.createObjectStore(DB_STORE);
         }
-
-      });
+      };
+      peticion.onsuccess = () => {
+        this.db = peticion.result;
+        resolve(peticion.result);
+      };
+      peticion.onerror = () => resolve(null);
+      peticion.onblocked = () => resolve(null);
+    });
   }
 
-
-  // =========================================
-  // APLICAR DATOS
-  // =========================================
-
-  private aplicarResumen(
-    datos: ResumenRespuesta
-  ): void {
-
-    // =========================================
-    // PROYECTOS
-    // =========================================
-
-    this.proyectos = {
-
-      total: Number(
-        datos.proyectos?.total ?? 0
-      ),
-
-      enProgreso: Number(
-        datos.proyectos?.enProgreso ?? 0
-      )
-    };
-
-
-    // =========================================
-    // OBRAS
-    // =========================================
-
-    this.obras = {
-
-      total: Number(
-        datos.obras?.total ?? 0
-      ),
-
-      enConstruccion: Number(
-        datos.obras?.enConstruccion ?? 0
-      )
-    };
-
-
-    // =========================================
-    // COTIZACIONES
-    // =========================================
-
-    this.cotizaciones = {
-
-      total: Number(
-        datos.cotizaciones?.total ?? 0
-      ),
-
-      pendientes: Number(
-        datos.cotizaciones?.pendientes ?? 0
-      )
-    };
-
-
-    // =========================================
-    // CONTRATOS
-    // =========================================
-
-    this.contratos = {
-
-      total: Number(
-        datos.contratos?.total ?? 0
-      ),
-
-      activos: Number(
-        datos.contratos?.activos ?? 0
-      )
-    };
-
-
-    // =========================================
-    // PAGOS
-    // =========================================
-
-    this.pagos = {
-
-      pendientes: Number(
-        datos.pagos?.pendientes ?? 0
-      ),
-
-      montoPendiente: Number(
-        datos.pagos?.montoPendiente ?? 0
-      )
-    };
-
-
-    // =========================================
-    // AVANCE PROMEDIO
-    // =========================================
-
-    this.avancePromedio =
-      Number(
-        datos.avancePromedio ?? 0
-      );
-
-
-    // =========================================
-    // CONSOLA
-    // =========================================
-
-    console.log('================================');
-
-    console.log(
-      'RESUMEN'
-    );
-
-    console.log('================================');
-
-
-    console.log(
-      'Proyectos:',
-      this.proyectos
-    );
-
-    console.log(
-      'Obras:',
-      this.obras
-    );
-
-    console.log(
-      'Cotizaciones:',
-      this.cotizaciones
-    );
-
-    console.log(
-      'Contratos:',
-      this.contratos
-    );
-
-    console.log(
-      'Pagos:',
-      this.pagos
-    );
-
-    console.log(
-      'Avance:',
-      this.avancePromedio
-    );
-  }
-
-
-  // =========================================
-  // GUARDAR RESUMEN
-  // =========================================
-
-  private guardarResumen(
-    datos: ResumenRespuesta
-  ): void {
-
-    if (!this.db) {
-
-      console.log(
-        'No existe conexión con IndexedDB'
-      );
-
-      return;
+  private async guardarCopia(datos: DatosInicio): Promise<void> {
+    const db = await this.dbLista;
+    if (!db) return;
+    try {
+      db.transaction(DB_STORE, 'readwrite').objectStore(DB_STORE).put(datos, DB_CLAVE);
+    } catch (e) {
+      console.error('No se pudo guardar la copia del inicio:', e);
     }
+  }
 
+  private async cargarCopia(): Promise<void> {
+    this.cargando.set(true);
+    const db = await this.dbLista;
 
-    console.log(
-      'Guardando resumen en IndexedDB...'
-    );
-
+    const sinDatos = () => {
+      this.error.set('No hay conexión con el servidor y este dispositivo aún no tiene datos guardados.');
+      this.cargando.set(false);
+    };
+    if (!db) return sinDatos();
 
     try {
-
-      const transaction =
-        this.db.transaction(
-          this.nombreStore,
-          'readwrite'
-        );
-
-
-      const store =
-        transaction.objectStore(
-          this.nombreStore
-        );
-
-
-      store.put(
-        datos,
-        'resumen'
-      );
-
-
-      // =========================================
-      // GUARDADO CORRECTO
-      // =========================================
-
-      transaction.oncomplete = () => {
-
-        console.log('================================');
-
-        console.log(
-          '✓ RESUMEN GUARDADO EN INDEXEDDB'
-        );
-
-        console.log('================================');
+      const peticion = db.transaction(DB_STORE, 'readonly').objectStore(DB_STORE).get(DB_CLAVE);
+      peticion.onsuccess = () => {
+        const datos = peticion.result as DatosInicio | undefined;
+        datos?.resumen ? this.mostrar(datos, true) : sinDatos();
       };
-
-
-      // =========================================
-      // ERROR
-      // =========================================
-
-      transaction.onerror = () => {
-
-        console.error(
-          'Error guardando:',
-          transaction.error
-        );
-      };
-
-
-    } catch (error) {
-
-      console.error(
-        'Error usando IndexedDB:',
-        error
-      );
+      peticion.onerror = sinDatos;
+    } catch {
+      sinDatos();
     }
   }
 
-
-  // =========================================
-  // CARGAR RESUMEN LOCAL
-  // =========================================
-
-  private cargarResumenGuardado(): void {
-
-    console.log('================================');
-
-    console.log(
-      'BUSCANDO DATOS EN INDEXEDDB'
-    );
-
-    console.log('================================');
-
-
-    // =========================================
-    // INICIAR CARGA
-    // =========================================
-
-    this.cargando.set(true);
-
-    this.error = '';
-
-
-    // =========================================
-    // COMPROBAR DB
-    // =========================================
-
-    if (!this.db) {
-
-      console.error(
-        'IndexedDB no está disponible'
-      );
-
-
-      this.error =
-        'No se pudo acceder a los datos guardados.';
-
-      this.cargando.set(false);
-
-
-      return;
-    }
-
-
-    try {
-
-      // =======================================
-      // TRANSACCIÓN
-      // =======================================
-
-      const transaction =
-        this.db.transaction(
-          this.nombreStore,
-          'readonly'
-        );
-
-
-      const store =
-        transaction.objectStore(
-          this.nombreStore
-        );
-
-
-      // =======================================
-      // OBTENER DATOS
-      // =======================================
-
-      const request =
-        store.get(
-          'resumen'
-        );
-
-
-      // =======================================
-      // RESPUESTA
-      // =======================================
-
-      request.onsuccess = () => {
-
-        const datos =
-          request.result as
-          ResumenRespuesta |
-          undefined;
-
-
-        console.log(
-          'Datos encontrados:',
-          datos
-        );
-
-
-        // =====================================
-        // HAY DATOS
-        // =====================================
-
-        if (datos) {
-
-          console.log(
-            '✓ DATOS OFFLINE ENCONTRADOS'
-          );
-
-
-          this.aplicarResumen(
-            datos
-          );
-
-
-          this.error = '';
-
-
-        }
-
-        // =====================================
-        // NO HAY DATOS
-        // =====================================
-
-        else {
-
-          console.log(
-            'No existen datos guardados'
-          );
-
-
-          this.error =
-            'No existen datos guardados para trabajar sin conexión.';
-        }
-
-
-        // =====================================
-        // TERMINAR CARGA
-        // =====================================
-
-        this.cargando.set(false);
-
-
-        console.log(
-          'Carga offline terminada'
-        );
-      };
-
-
-      // =======================================
-      // ERROR LEYENDO
-      // =======================================
-
-      request.onerror = () => {
-
-        console.error(
-          'Error leyendo IndexedDB:',
-          request.error
-        );
-
-
-        this.error =
-          'No se pudieron leer los datos guardados.';
-
-        this.cargando.set(false);
-      };
-
-
-      // =======================================
-      // ERROR TRANSACCIÓN
-      // =======================================
-
-      transaction.onerror = () => {
-
-        console.error(
-          'Error en transacción IndexedDB:',
-          transaction.error
-        );
-
-
-        this.error =
-          'Ocurrió un error al leer los datos locales.';
-
-        this.cargando.set(false);
-      };
-
-
-    } catch (error) {
-
-      console.error(
-        'Error leyendo datos locales:',
-        error
-      );
-
-
-      this.error =
-        'No se pudieron cargar los datos locales.';
-
-      this.cargando.set(false);
-    }
+  // =========================================================
+  // FORMATOS (se usan en el HTML)
+  // =========================================================
+
+  /** 8 → "08" */
+  dosDigitos(valor: number): string {
+    return String(valor).padStart(2, '0');
   }
 
-
-  // =========================================
-  // FORMATO DINERO
-  // =========================================
-
-  formatoDinero(
-    cantidad: number
-  ): string {
-
-    return new Intl.NumberFormat(
-      'es-MX',
-      {
-        style: 'currency',
-        currency: 'MXN'
-      }
-    ).format(
-      cantidad
-    );
+  /** 145000 → "$145,000" */
+  dinero(valor: number): string {
+    return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(valor);
   }
 
-
-  // =========================================
-  // FORMATO PORCENTAJE
-  // =========================================
-
-  formatoPorcentaje(
-    porcentaje: number
-  ): string {
-
-    return `${porcentaje.toFixed(1)}%`;
+  /** Proporción para las barras de los indicadores: 3 de 8 → 37.5 */
+  proporcion(parte: number, total: number): number {
+    return total > 0 ? Math.min(100, (parte / total) * 100) : 0;
   }
 
+  /** Día y mes por separado para el bloque de calendario: "22" · "OCT" */
+  dia(fecha: Date): string {
+    return String(fecha.getDate()).padStart(2, '0');
+  }
+
+  mes(fecha: Date): string {
+    return fecha.toLocaleDateString('es-MX', { month: 'short' }).replace('.', '').toUpperCase();
+  }
+
+  /** Días que faltan: "Hoy", "Mañana", "En 6 días" */
+  faltan(fecha: Date): string {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const dias = Math.round((fecha.getTime() - hoy.getTime()) / 86400000);
+    if (dias <= 0) return 'Hoy';
+    if (dias === 1) return 'Mañana';
+    return `En ${dias} días`;
+  }
+
+  /** "En construccion" (como viene de la BD) → "En construcción" */
+  estadoTexto(estado: string): string {
+    return estado.replace('construccion', 'construcción');
+  }
+
+  /** id 3 → "OBR-003" */
+  codigo(id: number): string {
+    return `OBR-${String(id).padStart(3, '0')}`;
+  }
+
+  /** "22 OCT 2026" (o "VIE 16 OCT 2026" con día de la semana) */
+  formatoFecha(fecha: Date, conDia = false): string {
+    return new Intl.DateTimeFormat('es-MX', {
+      weekday: conDia ? 'short' : undefined,
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    })
+      .format(fecha)
+      .replace(/[.,]/g, '')
+      .replace(/ de /g, ' ')
+      .toUpperCase();
+  }
+
+  /** Fecha y hora de la copia guardada: "16 OCT 2026 · 19:30" */
+  momentoCopia(): string {
+    const marca = this.guardadoEn();
+    if (!marca) return '';
+    const fecha = new Date(marca);
+    const hora = fecha.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+    return `${this.formatoFecha(fecha)} · ${hora}`;
+  }
+
+  private calcularSaludo(): string {
+    const hora = new Date().getHours();
+    if (hora < 12) return 'Buenos días';
+    if (hora < 19) return 'Buenas tardes';
+    return 'Buenas noches';
+  }
 }

@@ -27,7 +27,6 @@
 
 .barra__acciones { display: flex; align-items: center; gap: 18px; margin-left: auto; }
 
-/* Indicador de conexión */
 /* Indicador de conexión (ícono de wifi) */
 .estado { display: inline-flex; padding: 6px; color: var(--sg-verde); transition: color var(--sg-transicion); }
 .estado app-icono { width: 22px; height: 22px; }

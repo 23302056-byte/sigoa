@@ -17,7 +17,7 @@
     </nav>
 
     <div class="barra__acciones">
-            <!-- Indicador de conexión: wifi verde = con internet · wifi tachado gris = sin internet -->
+      <!-- Indicador de conexión: wifi verde = con internet · wifi tachado gris = sin internet -->
       <span class="estado" [class.estado--sin-conexion]="!conexion.enLinea()" role="status"
             [attr.title]="conexion.enLinea() ? 'En línea' : 'Sin conexión'"
             [attr.aria-label]="conexion.enLinea() ? 'En línea' : 'Sin conexión'">
@@ -79,5 +79,30 @@
       </a>
     }
   </nav>
+
+  <!-- ============ AVISOS Y CONFIRMACIÓN (sirven a todas las pantallas) ============ -->
+  <div class="sg-avisos" aria-live="polite">
+    @for (aviso of avisos.lista(); track aviso.id) {
+      <div class="sg-toast" [class.sg-toast--exito]="aviso.tipo === 'exito'" [class.sg-toast--error]="aviso.tipo === 'error'">
+        <span>{{ aviso.texto }}</span>
+        <button type="button" (click)="avisos.cerrar(aviso.id)" aria-label="Cerrar aviso"><app-icono nombre="cerrar" /></button>
+      </div>
+    }
+  </div>
+
+  @if (avisos.confirmacion(); as confirmacion) {
+    <div class="sg-velo" (click)="confirmacion.responder(false)"></div>
+    <div class="sg-modal sg-modal--chico" role="alertdialog" aria-modal="true">
+      <div class="sg-modal__cabecera">
+        <div><span class="sg-label">Confirmar</span><h2>{{ confirmacion.titulo }}</h2></div>
+      </div>
+      <div class="sg-modal__cuerpo"><p>{{ confirmacion.mensaje }}</p></div>
+      <div class="sg-modal__pie">
+        <button type="button" class="sg-btn sg-btn--contorno sg-btn--chico" (click)="confirmacion.responder(false)">Cancelar</button>
+        <button type="button" class="sg-btn sg-btn--chico" [class.sg-btn--peligro]="confirmacion.peligro"
+                (click)="confirmacion.responder(true)">{{ confirmacion.textoAceptar }}</button>
+      </div>
+    </div>
+  }
 
 </div>

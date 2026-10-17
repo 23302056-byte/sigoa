@@ -54,6 +54,39 @@ import { Component, input } from '@angular/core';
         @case ('descargar') {
           <path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>
         }
+        @case ('calendario') {
+          <rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/>
+        }
+        @case ('mas') {
+          <path d="M12 5v14M5 12h14"/>
+        }
+        @case ('flecha') {
+          <path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>
+        }
+        @case ('buscar') {
+          <circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>
+        }
+        @case ('editar') {
+          <path d="M4 20h4L19 9l-4-4L4 16Z"/><path d="m13.5 6.5 4 4"/>
+        }
+        @case ('borrar') {
+          <path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13"/><path d="M9 7V4h6v3"/>
+        }
+        @case ('opciones') {
+          <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
+        }
+        @case ('anterior') {
+          <path d="m15 6-6 6 6 6"/>
+        }
+        @case ('siguiente') {
+          <path d="m9 6 6 6-6 6"/>
+        }
+        @case ('ubicacion') {
+          <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/>
+        }
+        @case ('ver') {
+          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>
+        }
         @case ('wifi') {
           <path d="M12 20h.01"/><path d="M2 8.8a15 15 0 0 1 20 0"/><path d="M5 12.9a10 10 0 0 1 14 0"/><path d="M8.5 16.4a5 5 0 0 1 7 0"/>
         }
