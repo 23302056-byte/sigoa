@@ -223,3 +223,83 @@ export function validarCotizacion(c: CotizacionAValidar, todas: CotizacionResume
   if (motivo) return `No se puede marcar como "${c.estado}": ${motivo}.`;
   return null;
 }
+
+
+// =========================================================
+// CONTRATOS
+// =========================================================
+
+export const ESTADOS_CONTRATO = ['Borrador', 'Activo', 'Finalizado', 'Cancelado'];
+
+export interface ContratoResumen {
+  id: number;
+  id_proyecto: number;
+  numero_contrato: string;
+  estado: string;
+}
+
+export interface ContratoAValidar {
+  id: number | null;
+  id_proyecto: number | null;
+  numero_contrato: string;
+  fecha_firma: string;
+  fecha_inicio: string;
+  fecha_fin: string;
+  monto: number;
+  estado: string;
+  /** Estado con el que se abrió el formulario (null si es nuevo) */
+  estadoOriginal: string | null;
+}
+
+/**
+ * Motivo por el que un estado NO se puede elegir para el contrato.
+ * - Para activarlo, el proyecto debe tener una cotización aceptada.
+ * - Solo puede haber un contrato activo por proyecto.
+ * - "Finalizado" solo después de haber estado activo.
+ * Devuelve '' cuando el estado sí está permitido.
+ */
+export function motivoEstadoContrato(
+  c: Pick<ContratoAValidar, 'id' | 'id_proyecto' | 'estadoOriginal'>,
+  estado: string,
+  todos: ContratoResumen[],
+  tieneCotizacionAceptada: boolean
+): string {
+  if (!c.id && !['Borrador', 'Activo'].includes(estado)) return 'solo al editar';
+  if (estado === c.estadoOriginal) return '';
+
+  if (estado === 'Activo') {
+    if (!tieneCotizacionAceptada) return 'falta cotización aceptada';
+    const otroActivo = todos.some((o) => o.id !== c.id && o.id_proyecto === c.id_proyecto && o.estado === 'Activo');
+    if (otroActivo) return 'el proyecto ya tiene uno activo';
+  }
+  if (estado === 'Finalizado' && c.estadoOriginal !== 'Activo') return 'primero debe estar activo';
+  return '';
+}
+
+/** Valida el formulario de contrato. Devuelve el mensaje de error o null si todo está bien. */
+export function validarContrato(c: ContratoAValidar, todos: ContratoResumen[], tieneCotizacionAceptada: boolean): string | null {
+  const numero = c.numero_contrato.trim().toUpperCase();
+  const monto = Number(c.monto);
+
+  if (!c.id_proyecto) return 'Selecciona el proyecto del contrato.';
+  if (numero.length < 3) return 'Escribe el número de contrato (ej. CTR-2026-003).';
+  if (todos.some((o) => o.id !== c.id && o.numero_contrato.toUpperCase() === numero)) return `El contrato ${numero} ya está registrado.`;
+  if (!Number.isFinite(monto) || monto < 0) return 'El monto no puede ser negativo.';
+
+  const motivo = motivoEstadoContrato(c, c.estado, todos, tieneCotizacionAceptada);
+  if (motivo) return `No se puede marcar como "${c.estado}": ${motivo}.`;
+
+  if (['Activo', 'Finalizado'].includes(c.estado)) {
+    if (!(monto > 0)) return 'Un contrato activo necesita un monto mayor a 0.';
+    if (!c.fecha_firma) return 'Indica la fecha en que se firmó el contrato.';
+    if (!c.fecha_inicio) return 'Indica la fecha de inicio de los trabajos.';
+    if (!c.fecha_fin) return 'Indica la fecha de terminación de los trabajos.';
+  }
+  if (c.fecha_firma && c.fecha_inicio && c.fecha_inicio < c.fecha_firma) {
+    return 'Los trabajos no pueden iniciar antes de firmar el contrato.';
+  }
+  if (c.fecha_inicio && c.fecha_fin && c.fecha_fin < c.fecha_inicio) {
+    return 'La fecha de terminación no puede ser antes del inicio.';
+  }
+  return null;
+}
