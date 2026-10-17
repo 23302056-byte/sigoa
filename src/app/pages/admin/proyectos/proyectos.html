@@ -250,7 +250,7 @@
       </div>
 
       <div class="sg-campo">
-        <label class="sg-label" for="p-arquitecto">Arquitecto responsable</label>
+        <label class="sg-label" for="p-arquitecto">Arquitecto responsable{{ pideDatosCompletos(form) ? ' *' : '' }}</label>
         <select id="p-arquitecto" class="sg-select" name="id_arquitecto" [(ngModel)]="form.id_arquitecto">
           <option [ngValue]="null">Sin asignar</option>
           @for (a of arquitectos(); track a.id) {
@@ -263,9 +263,12 @@
         <label class="sg-label" for="p-estado">Estado</label>
         <select id="p-estado" class="sg-select" name="estado" [(ngModel)]="form.estado">
           @for (e of estadosProyecto; track e) {
-            <option [value]="e">{{ e }}</option>
+            <option [value]="e" [disabled]="!!motivoEstado(form, e)">
+              {{ e }}{{ motivoEstado(form, e) ? ' (' + motivoEstado(form, e) + ')' : '' }}
+            </option>
           }
         </select>
+        <small class="ayuda">Para "Completado", todas sus obras deben estar finalizadas.</small>
       </div>
 
       <div class="sg-campo">
@@ -274,12 +277,12 @@
       </div>
 
       <div class="sg-campo">
-        <label class="sg-label" for="p-inicio">Fecha de inicio</label>
+        <label class="sg-label" for="p-inicio">Fecha de inicio{{ pideDatosCompletos(form) ? ' *' : '' }}</label>
         <input id="p-inicio" class="sg-input" type="date" name="fecha_inicio" [(ngModel)]="form.fecha_inicio">
       </div>
 
       <div class="sg-campo">
-        <label class="sg-label" for="p-fin">Fecha de entrega estimada</label>
+        <label class="sg-label" for="p-fin">Fecha de entrega estimada{{ pideDatosCompletos(form) ? ' *' : '' }}</label>
         <input id="p-fin" class="sg-input" type="date" name="fecha_fin" [(ngModel)]="form.fecha_fin">
       </div>
 
@@ -321,7 +324,7 @@
 
       <div class="sg-campo">
         <label class="sg-label" for="o-estado">Estado</label>
-        <select id="o-estado" class="sg-select" name="estado" [(ngModel)]="obra.estado">
+        <select id="o-estado" class="sg-select" name="estado" [ngModel]="obra.estado" (ngModelChange)="cambiarEstadoObra(obra, $event)">
           @for (e of estadosObra; track e) {
             <option [value]="e">{{ estadoTexto(e) }}</option>
           }
@@ -330,11 +333,12 @@
 
       <div class="sg-campo">
         <label class="sg-label" for="o-avance">Avance: {{ obra.porcentaje_avance }}%</label>
-        <input id="o-avance" class="rango" type="range" min="0" max="100" step="5" name="porcentaje_avance" [(ngModel)]="obra.porcentaje_avance">
+        <input id="o-avance" class="rango" type="range" min="0" max="100" step="5" name="porcentaje_avance"
+               [(ngModel)]="obra.porcentaje_avance" [disabled]="obra.estado === 'Pendiente' || obra.estado === 'Finalizada'">
       </div>
 
       <div class="sg-campo">
-        <label class="sg-label" for="o-inicio">Fecha de inicio</label>
+        <label class="sg-label" for="o-inicio">Fecha de inicio{{ obra.estado === 'Pendiente' || obra.estado === 'Cancelada' ? '' : ' *' }}</label>
         <input id="o-inicio" class="sg-input" type="date" name="fecha_inicio" [(ngModel)]="obra.fecha_inicio">
       </div>
 
@@ -342,6 +346,13 @@
         <label class="sg-label" for="o-fin">Entrega estimada</label>
         <input id="o-fin" class="sg-input" type="date" name="fecha_fin_estimada" [(ngModel)]="obra.fecha_fin_estimada">
       </div>
+
+      @if (obra.estado === 'Finalizada') {
+        <div class="sg-campo">
+          <label class="sg-label" for="o-real">Fecha real de término *</label>
+          <input id="o-real" class="sg-input" type="date" name="fecha_fin_real" [(ngModel)]="obra.fecha_fin_real">
+        </div>
+      }
 
       <div class="sg-campo sg-campo--completo">
         <label class="sg-label" for="o-descripcion">Descripción</label>

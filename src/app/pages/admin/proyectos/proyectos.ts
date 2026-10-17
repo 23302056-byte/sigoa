@@ -6,6 +6,9 @@ import { Router } from '@angular/router';
 import { Icono } from '../../../shared/icono/icono';
 import { ConexionService } from '../../../core/services/conexion.service';
 import { AvisosService } from '../../../core/services/avisos.service';
+import {
+  ESTADOS_OBRA, ESTADOS_PROYECTO, ajustarObraPorEstado, motivoEstadoProyecto, validarObra, validarProyecto
+} from '../../../core/reglas/reglas-negocio';
 
 const API = 'http://localhost:3000/api/routes';
 
@@ -17,11 +20,6 @@ const DB_CLAVE = 'admin-proyectos';
 
 const POR_PAGINA = 8;
 
-/** Estados como los devuelve y acepta la API de proyectos */
-const ESTADOS_PROYECTO = ['Pendiente', 'En proceso', 'Pausado', 'Completado', 'Cancelado'];
-/** Estados válidos de una obra en la base de datos */
-const ESTADOS_OBRA = ['Pendiente', 'En construccion', 'Pausada', 'Finalizada', 'Cancelada'];
-
 interface ObraProyecto {
   id_obra: number;
   id_proyecto: number;
@@ -30,6 +28,7 @@ interface ObraProyecto {
   estado: string;
   fecha_inicio: string;
   fecha_fin_estimada: string;
+  fecha_fin_real: string;
   porcentaje_avance: number;
 }
 
@@ -74,6 +73,7 @@ interface FormObra {
   estado: string;
   fecha_inicio: string;
   fecha_fin_estimada: string;
+  fecha_fin_real: string;
   porcentaje_avance: number;
 }
 
@@ -277,6 +277,7 @@ export class Proyectos implements OnDestroy {
         estado: o.estado ?? 'Pendiente',
         fecha_inicio: this.fechaISO(o.fecha_inicio),
         fecha_fin_estimada: this.fechaISO(o.fecha_fin_estimada),
+        fecha_fin_real: this.fechaISO(o.fecha_fin_real),
         porcentaje_avance: Number(o.porcentaje_avance) || 0
       }))
     };
@@ -406,11 +407,8 @@ export class Proyectos implements OnDestroy {
     const form = this.formProyecto();
     if (!form || this.guardando()) return;
 
-    if (!form.nombre.trim()) return this.avisos.error('Escribe el nombre del proyecto.');
-    if (!form.id_cliente) return this.avisos.error('Selecciona el cliente del proyecto.');
-    if (form.fecha_inicio && form.fecha_fin && form.fecha_fin < form.fecha_inicio) {
-      return this.avisos.error('La fecha de entrega no puede ser antes del inicio.');
-    }
+    const problema = validarProyecto(form, this.obrasDe(form.id));
+    if (problema) return this.avisos.error(problema);
 
     const datos = {
       id_cliente: form.id_cliente,
@@ -475,7 +473,7 @@ export class Proyectos implements OnDestroy {
     if (!this.conexion.enLinea()) return;
     this.formObra.set({
       id: null, id_proyecto: p.id, nombre: '', descripcion: '', estado: 'Pendiente',
-      fecha_inicio: '', fecha_fin_estimada: '', porcentaje_avance: 0
+      fecha_inicio: '', fecha_fin_estimada: '', fecha_fin_real: '', porcentaje_avance: 0
     });
   }
 
@@ -484,7 +482,7 @@ export class Proyectos implements OnDestroy {
     this.formObra.set({
       id: o.id_obra, id_proyecto: o.id_proyecto, nombre: o.nombre, descripcion: o.descripcion,
       estado: o.estado, fecha_inicio: o.fecha_inicio, fecha_fin_estimada: o.fecha_fin_estimada,
-      porcentaje_avance: o.porcentaje_avance
+      fecha_fin_real: o.fecha_fin_real, porcentaje_avance: o.porcentaje_avance
     });
   }
 
@@ -492,17 +490,16 @@ export class Proyectos implements OnDestroy {
     const form = this.formObra();
     if (!form || this.guardando()) return;
 
-    const avance = Number(form.porcentaje_avance);
-    if (!form.nombre.trim()) return this.avisos.error('Escribe el nombre de la obra.');
-    if (!Number.isFinite(avance) || avance < 0 || avance > 100) return this.avisos.error('El avance debe estar entre 0 y 100.');
+    const problema = validarObra(form);
+    if (problema) return this.avisos.error(problema);
 
     const datos = {
       ...form,
       nombre: form.nombre.trim(),
-      porcentaje_avance: avance,
+      porcentaje_avance: Number(form.porcentaje_avance),
       fecha_inicio: form.fecha_inicio || null,
       fecha_fin_estimada: form.fecha_fin_estimada || null,
-      fecha_fin_real: null
+      fecha_fin_real: form.fecha_fin_real || null
     };
 
     this.guardando.set(true);
@@ -544,6 +541,31 @@ export class Proyectos implements OnDestroy {
       },
       error: (e) => this.avisos.error(e.error?.mensaje || 'No se pudo eliminar la obra.')
     });
+  }
+
+  // =========================================================
+  // REGLAS (se usan en el HTML de los formularios)
+  // =========================================================
+
+  /** Obras registradas de un proyecto (vacío si es un proyecto nuevo) */
+  private obrasDe(idProyecto: number | null): ObraProyecto[] {
+    return this.proyectos().find((p) => p.id === idProyecto)?.obras ?? [];
+  }
+
+  /** Motivo por el que un estado no se puede elegir en el formulario ('' = sí se puede) */
+  motivoEstado(form: FormProyecto, estado: string): string {
+    return motivoEstadoProyecto(estado, !form.id, this.obrasDe(form.id));
+  }
+
+  /** En proceso, pausado o completado: arquitecto y fechas son obligatorios */
+  pideDatosCompletos(form: FormProyecto): boolean {
+    return ['En proceso', 'Pausado', 'Completado'].includes(form.estado);
+  }
+
+  /** Al cambiar el estado de la obra se ajustan avance y fecha real */
+  cambiarEstadoObra(form: FormObra, estado: string): void {
+    form.estado = estado;
+    ajustarObraPorEstado(form, estado);
   }
 
   // =========================================================

@@ -228,8 +228,13 @@
 }
 .sg-modal--chico { width: min(440px, calc(100vw - 32px)); }
 /* Para un modal que se abre encima del panel lateral */
+/* Capas (de abajo hacia arriba):
+   ficha / modal 300-301 → formulario encima de la ficha 310-311
+   → confirmación 1500-1501 → visor de imágenes 2000 → avisos 2100 */
 .sg-velo--alto { z-index: 310; }
 .sg-modal--alto { z-index: 311; }
+.sg-velo--confirmar { z-index: 1500; }
+.sg-modal--confirmar { z-index: 1501; }
 
 .sg-lateral {
   position: fixed;
@@ -290,7 +295,7 @@
   position: fixed;
   right: 20px;
   bottom: 20px;
-  z-index: 400;
+  z-index: 2100;
   display: flex;
   flex-direction: column;
   gap: 10px;

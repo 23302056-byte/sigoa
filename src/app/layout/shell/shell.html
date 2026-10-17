@@ -91,8 +91,8 @@
   </div>
 
   @if (avisos.confirmacion(); as confirmacion) {
-    <div class="sg-velo" (click)="confirmacion.responder(false)"></div>
-    <div class="sg-modal sg-modal--chico" role="alertdialog" aria-modal="true">
+    <div class="sg-velo sg-velo--confirmar" (click)="confirmacion.responder(false)"></div>
+    <div class="sg-modal sg-modal--chico sg-modal--confirmar" role="alertdialog" aria-modal="true">
       <div class="sg-modal__cabecera">
         <div><span class="sg-label">Confirmar</span><h2>{{ confirmacion.titulo }}</h2></div>
       </div>
