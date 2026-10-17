@@ -8,7 +8,6 @@ import {
 import { HttpClient } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 
-import { AdminNavbarComponent } from '../../../components/admin/admin-navbar/admin-navbar';
 
 interface ResumenRespuesta {
   success?: boolean;
@@ -46,7 +45,7 @@ interface ResumenRespuesta {
   standalone: true,
 
   imports: [
-    AdminNavbarComponent,
+    
     RouterLink
   ],
 

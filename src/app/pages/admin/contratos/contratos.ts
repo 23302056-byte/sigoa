@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { timeout } from 'rxjs';
-import { AdminNavbarComponent } from '../../../components/admin/admin-navbar/admin-navbar';
 
 interface Contrato {
   id: number;
@@ -36,7 +35,7 @@ interface RespuestaContratos {
 @Component({
   selector: 'app-contratos',
   standalone: true,
-  imports: [CommonModule, FormsModule, AdminNavbarComponent],
+  imports: [CommonModule, FormsModule],
   templateUrl: './contratos.html',
   styleUrl: './contratos.css'
 })

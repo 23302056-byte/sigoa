@@ -3,7 +3,6 @@ import { HttpClient } from '@angular/common/http';
 import { ChangeDetectorRef, Component, Inject, OnInit, PLATFORM_ID } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { ArquitectoNavbarComponent } from '../../../components/arquitecto/arquitecto-navbar/arquitecto-navbar';
 
 interface Obra {
   id_obra: number;
@@ -36,7 +35,7 @@ interface RespuestaProyectos {
 @Component({
   selector: 'app-inicio-arquitecto',
   standalone: true,
-  imports: [CommonModule, FormsModule, ArquitectoNavbarComponent],
+  imports: [CommonModule, FormsModule],
   templateUrl: './inicio.html',
   styleUrl: './inicio.css'
 })

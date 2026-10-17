@@ -2,12 +2,11 @@ import { afterNextRender, ChangeDetectorRef, Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { AdminNavbarComponent } from '../../../components/admin/admin-navbar/admin-navbar';
 
 interface Persona { id: number; nombre: string; apellidos: string; correo: string; telefono: string | null; direccion?: string | null; activo: number | boolean; proyectos?: number; }
 interface Respuesta { success: boolean; id?: number; mensaje?: string; clientes?: Persona[]; arquitectos?: Persona[]; }
 
-@Component({ selector: 'app-usuarios', standalone: true, imports: [CommonModule, FormsModule, AdminNavbarComponent], templateUrl: './usuarios.html', styleUrl: './usuarios.css' })
+@Component({ selector: 'app-usuarios', standalone: true, imports: [CommonModule, FormsModule], templateUrl: './usuarios.html', styleUrl: './usuarios.css' })
 export class Usuarios {
   clientes: Persona[] = []; arquitectos: Persona[] = []; pestana: 'clientes' | 'arquitectos' = 'clientes'; busqueda = ''; cargando = true; error = '';
   mostrarFormulario = false;

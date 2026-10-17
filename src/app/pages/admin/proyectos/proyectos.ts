@@ -5,7 +5,6 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 
-import { AdminNavbarComponent } from '../../../components/admin/admin-navbar/admin-navbar';
 
 interface Proyecto {
   id: number;
@@ -60,8 +59,7 @@ interface NuevaObra { id: number | null; id_proyecto: number; nombre: string; de
   imports: [
     CommonModule,
     FormsModule,
-    AdminNavbarComponent
-  ],
+   ],
   templateUrl: './proyectos.html',
   styleUrl: './proyectos.css'
 })

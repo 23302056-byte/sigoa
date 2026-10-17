@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
-import { AdminNavbarComponent } from '../../components/admin/admin-navbar/admin-navbar';
 
 interface Obra {
   id: number;
@@ -32,7 +31,7 @@ interface RespuestaObras {
 @Component({
   selector: 'app-obras',
   standalone: true,
-  imports: [CommonModule, FormsModule, AdminNavbarComponent],
+  imports: [CommonModule, FormsModule],
   templateUrl: './obras.html',
   styleUrl: './obras.css'
 })

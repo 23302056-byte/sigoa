@@ -5,14 +5,13 @@
    ========================================================= */
 
 /* ---------- Tipografías locales (funcionan sin internet) ---------- */
-@import '@fontsource/inter/latin-400.css';
-@import '@fontsource/inter/latin-500.css';
-@import '@fontsource/inter/latin-600.css';
-@import '@fontsource/inter/latin-700.css';
-@import '@fontsource/inter/latin-800.css';
-@import '@fontsource/ibm-plex-mono/latin-400.css';
-@import '@fontsource/ibm-plex-mono/latin-500.css';
-@import '@fontsource/ibm-plex-mono/latin-600.css';
+/* ---------- Tipografía local (funciona sin internet) ---------- */
+@import '@fontsource/figtree/latin-400.css';
+@import '@fontsource/figtree/latin-500.css';
+@import '@fontsource/figtree/latin-600.css';
+@import '@fontsource/figtree/latin-700.css';
+@import '@fontsource/figtree/latin-800.css';
+
 
 /* ---------- Variables (tokens) ---------- */
 :root {
@@ -32,9 +31,9 @@
   --sg-linea-suave: rgba(22, 22, 22, 0.08);
   --sg-cuadricula: rgba(22, 22, 22, 0.035);
 
-  /* Tipografías */
-  --sg-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --sg-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', monospace;
+    /* Tipografías */
+  --sg-sans: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --sg-mono: 'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
   /* Medidas */
   --sg-margen: 48px;
@@ -59,12 +58,14 @@ body {
   font-size: 15px;
   color: var(--sg-negro);
   background-color: var(--sg-papel);
-  /* Cuadrícula de papel milimétrico: cuadros de 8px casi transparentes */
+  /* Papel milimétrico (igual que el login): cuadros finos de 10px
+     y una línea un poco más marcada cada 50px */
   background-image:
-    linear-gradient(var(--sg-cuadricula) 1px, transparent 1px),
-    linear-gradient(90deg, var(--sg-cuadricula) 1px, transparent 1px);
-  background-size: 8px 8px;
-  -webkit-font-smoothing: antialiased;
+    linear-gradient(to right, rgba(0, 0, 0, 0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.025) 1px, transparent 1px),
+    linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
+  background-size: 10px 10px, 10px 10px, 50px 50px, 50px 50px;
 }
 
 h1,
@@ -90,8 +91,8 @@ a {
 .sg-label {
   font-family: var(--sg-mono);
   font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--sg-gris);
 }
@@ -163,8 +164,8 @@ a {
   color: var(--sg-blanco);
   font-family: var(--sg-mono);
   font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.16em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
   transition: background var(--sg-transicion), color var(--sg-transicion);
@@ -268,7 +269,7 @@ a {
   font-family: var(--sg-mono);
   font-size: 11px;
   font-weight: 500;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--sg-negro);
 }

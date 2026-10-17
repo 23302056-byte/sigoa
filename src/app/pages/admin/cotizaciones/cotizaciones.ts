@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { timeout } from 'rxjs';
-import { AdminNavbarComponent } from '../../../components/admin/admin-navbar/admin-navbar';
 
 interface DetalleCotizacion {
   id: number;
@@ -44,7 +43,7 @@ interface RespuestaCotizaciones {
 @Component({
   selector: 'app-cotizaciones',
   standalone: true,
-  imports: [CommonModule, FormsModule, AdminNavbarComponent],
+  imports: [CommonModule, FormsModule],
   templateUrl: './cotizaciones.html',
   styleUrl: './cotizaciones.css'
 })

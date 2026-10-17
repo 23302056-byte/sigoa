@@ -1,4 +1,3 @@
-<app-admin-navbar></app-admin-navbar>
 <main class="pagina">
   <header class="encabezado"><div><h1>Pagos</h1><p *ngIf="!proyectoFiltro">Administra los pagos registrados para cada proyecto.</p><p class="contexto-proyecto" *ngIf="proyectoFiltro">Proyecto: {{ proyectoFiltro }} <button type="button" (click)="volverAProyecto()">Volver a proyectos</button></p></div><button class="primario" (click)="nuevo()">Registrar pago</button></header>
   <div class="herramientas"><input type="search" placeholder="Buscar pago, proyecto o cliente..." [(ngModel)]="busqueda" (input)="filtrar()"><span>{{ pagosFiltrados.length }} pagos</span></div>

@@ -3,13 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
-import { AdminNavbarComponent } from '../../../components/admin/admin-navbar/admin-navbar';
 
 interface Pago { id: number; id_proyecto: number; proyecto: string; cliente: string; fecha: string; concepto: string; monto: number; metodo_pago: string; referencia: string; estado: string; observaciones: string; }
 interface Proyecto { id: number; nombre: string; }
 interface Respuesta { success: boolean; mensaje?: string; pagos?: Pago[]; proyectos?: Proyecto[]; }
 
-@Component({ selector: 'app-pagos', standalone: true, imports: [CommonModule, FormsModule, AdminNavbarComponent], templateUrl: './pagos.html', styleUrl: './pagos.css' })
+@Component({ selector: 'app-pagos', standalone: true, imports: [CommonModule, FormsModule], templateUrl: './pagos.html', styleUrl: './pagos.css' })
 export class Pagos implements OnDestroy {
   private readonly api = 'http://localhost:3000/api/routes/pagos';
   private db: IDBDatabase | null = null;
