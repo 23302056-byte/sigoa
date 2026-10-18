@@ -10,6 +10,8 @@ const contratosRoutes = require('./routes/contratos');
 const pagosRoutes = require('./routes/pagos');
 const evidenciasRoutes = require('./routes/evidencias');
 const usuariosRoutes = require('./routes/usuarios');
+const clienteRoutes = require('./routes/cliente');
+
 const path = require('path');
 
 const app = express();
@@ -29,6 +31,7 @@ app.use('/api/routes/contratos', contratosRoutes);
 app.use('/api/routes/pagos', pagosRoutes);
 app.use('/api/routes/evidencias', evidenciasRoutes);
 app.use('/api/routes/usuarios', usuariosRoutes);
+app.use('/api/routes/cliente', clienteRoutes);
 
 app.get('/', (req, res) => {
     res.json({
