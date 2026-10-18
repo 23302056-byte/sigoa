@@ -1,4 +1,4 @@
-import { Component, OnInit, PLATFORM_ID, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnInit, PLATFORM_ID, computed, inject, signal, viewChild } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
@@ -27,7 +27,12 @@ interface UsuarioSesion {
   standalone: true,
   imports: [RouterOutlet, RouterLink, RouterLinkActive, Icono],
   templateUrl: './shell.html',
-  styleUrl: './shell.css'
+  styleUrl: './shell.css',
+  // Clic en cualquier parte de la pantalla o tecla Esc: se cierra el menú de perfil
+  host: {
+    '(document:click)': 'clicEnDocumento($event)',
+    '(document:keydown.escape)': 'perfilAbierto.set(false)'
+  }
 })
 export class Shell implements OnInit {
   private readonly router = inject(Router);
@@ -44,6 +49,7 @@ export class Shell implements OnInit {
   readonly inicial = computed(() => (this.usuario()?.nombre ?? 'U').charAt(0).toUpperCase());
 
   readonly perfilAbierto = signal(false);
+  private readonly perfil = viewChild<ElementRef<HTMLElement>>('perfil');
 
   ngOnInit(): void {
     this.rol.set((this.ruta.snapshot.data['rol'] as Rol) ?? 'admin');
@@ -76,7 +82,26 @@ export class Shell implements OnInit {
     });
   }
 
-  cerrarSesion(): void {
+  /** Si el clic fue fuera del avatar y de su menú, el menú se cierra */
+  clicEnDocumento(evento: MouseEvent): void {
+    if (!this.perfilAbierto()) return;
+    const zona = this.perfil()?.nativeElement;
+    if (zona && !zona.contains(evento.target as Node)) this.perfilAbierto.set(false);
+  }
+
+  /** Pide confirmación antes de salir */
+  async confirmarCerrarSesion(): Promise<void> {
+    this.perfilAbierto.set(false);
+    const salir = await this.avisos.confirmar({
+      titulo: '¿Cerrar sesión?',
+      mensaje: 'Tendrás que volver a ingresar tu correo y contraseña. Los datos guardados para consultar sin conexión se borrarán de este dispositivo.',
+      textoAceptar: 'Cerrar sesión',
+      peligro: true
+    });
+    if (salir) this.cerrarSesion();
+  }
+
+  private cerrarSesion(): void {
     if (this.esNavegador) {
       localStorage.removeItem('usuario');
       // Se borra la información guardada para consulta sin conexión,

@@ -99,6 +99,19 @@ import { Component, input } from '@angular/core';
         @case ('wifi-off') {
           <path d="M12 20h.01"/><path d="M8.5 16.4a5 5 0 0 1 7 0"/><path d="M5 12.9a10 10 0 0 1 5.2-2.7"/><path d="M19 12.9a10 10 0 0 0-2-1.5"/><path d="M2 8.8a15 15 0 0 1 4.2-2.6"/><path d="M22 8.8a15 15 0 0 0-11.3-3.8"/><path d="m2 2 20 20"/>
         }
+        <!-- Glifos de los avisos (van dentro de un círculo de color) -->
+        @case ('aviso-exito') {
+          <path stroke-width="2.4" d="M5 12.5 9.5 17 19 7.5"/>
+        }
+        @case ('aviso-error') {
+          <path stroke-width="2.4" d="M7 7l10 10"/><path stroke-width="2.4" d="M17 7 7 17"/>
+        }
+        @case ('aviso-alerta') {
+          <path stroke-width="2.4" d="M12 5.5v8.5"/><path stroke-width="2.4" d="M12 18.5h.01"/>
+        }
+        @case ('aviso-info') {
+          <path stroke-width="2.4" d="M12 10.5v8"/><path stroke-width="2.4" d="M12 5.5h.01"/>
+        }
         @case ('sin-conexion') {
           <path d="m2 2 20 20"/><path d="M5.8 5.8A7 7 0 0 0 6 19h11"/><path d="M21 15.5A4.5 4.5 0 0 0 16.5 11h-.6A7 7 0 0 0 10 5.2"/>
         }

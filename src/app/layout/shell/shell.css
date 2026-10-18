@@ -51,13 +51,38 @@
   width: 38px; height: 38px; border: 0; border-radius: 50%;
   background: var(--sg-negro); color: var(--sg-blanco);
   font-family: var(--sg-sans); font-size: 16px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 0 0 0 var(--sg-amarillo);
+  transition: box-shadow 0.25s ease, transform 0.15s ease;
 }
-.perfil__velo { position: fixed; inset: 0; z-index: 1; }
+.avatar:hover { box-shadow: 0 0 0 3px rgba(250, 200, 43, 0.45); }
+.avatar:active { transform: scale(0.94); }
+.avatar--abierto, .avatar--abierto:hover { box-shadow: 0 0 0 3px var(--sg-amarillo); }
+
+/* Menú de perfil: oculto pero presente, para animar la entrada Y la salida */
 .perfil__menu {
   position: absolute; right: 0; top: calc(100% + 12px); z-index: 2; width: 270px;
-  background: var(--sg-papel); border: 1px solid rgba(22, 22, 22, 0.45);
+  background: var(--sg-papel); border: 1px solid rgba(22, 22, 22, 0.45); border-radius: 8px;
   box-shadow: 0 12px 32px rgba(22, 22, 22, 0.12);
+  overflow: hidden;
+  transform-origin: top right;
+  /* Cerrado */
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transform: translateY(-8px) scale(0.96);
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0.18s;
 }
+.perfil__menu--abierto {
+  opacity: 1; visibility: visible; pointer-events: auto;
+  transform: none;
+  transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.22, 0.7, 0.2, 1), visibility 0s;
+}
+
+/* Las opciones entran una tras otra al abrir */
+.perfil__menu > * { opacity: 0; transform: translateY(-4px); transition: opacity 0.15s ease, transform 0.15s ease; }
+.perfil__menu--abierto > * { opacity: 1; transform: none; transition: opacity 0.25s ease, transform 0.25s ease; }
+.perfil__menu--abierto > :nth-child(1) { transition-delay: 0.05s; }
+.perfil__menu--abierto > :nth-child(2) { transition-delay: 0.09s; }
+.perfil__menu--abierto > :nth-child(3) { transition-delay: 0.13s; }
+
 .perfil__datos {
   display: flex; flex-direction: column; gap: 4px;
   padding: 16px; border-bottom: 1px solid var(--sg-linea);
@@ -68,8 +93,15 @@
   padding: 14px 16px; border: 0; background: transparent; cursor: pointer;
   font-family: var(--sg-mono); font-weight: 600; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase;
   color: var(--sg-negro); text-align: left;
+  transition: background var(--sg-transicion);
 }
 .perfil__opcion:hover { background: rgba(250, 200, 43, 0.18); }
+.perfil__opcion--salir { border-top: 1px solid var(--sg-linea); }
+.perfil__opcion--salir:hover { background: rgba(155, 37, 37, 0.08); color: var(--sg-rojo); }
+
+@media (prefers-reduced-motion: reduce) {
+  .perfil__menu, .perfil__menu > *, .avatar { transition: none !important; }
+}
 
 /* Aviso sin conexión */
 .aviso-offline {
@@ -77,6 +109,94 @@
   padding: 10px var(--sg-margen);
   background: rgba(250, 200, 43, 0.22); border-bottom: 2px solid var(--sg-amarillo);
   font-family: var(--sg-mono); font-weight: 600; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase;
+}
+
+/* ---------- Avisos (arriba a la derecha) ---------- */
+.avisos {
+  position: fixed; top: 88px; right: 24px; z-index: 2100;
+  display: flex; flex-direction: column; gap: 10px;
+  width: min(380px, calc(100vw - 32px));
+  pointer-events: none; /* lo de alrededor de los avisos sigue clicable */
+}
+
+.aviso {
+  /* Cada tipo cambia solo estas 4 variables */
+  --color: var(--sg-negro);
+  --fondo: #ffffff;
+  --borde: rgba(22, 22, 22, 0.15);
+  --glifo: #ffffff;
+
+  position: relative; overflow: hidden; pointer-events: auto;
+  display: grid; grid-template-columns: auto 1fr auto; align-items: start; gap: 12px;
+  padding: 14px 12px 16px 14px;
+  background: var(--fondo);
+  border: 1px solid var(--borde); border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(22, 22, 22, 0.12), 0 2px 6px rgba(22, 22, 22, 0.06);
+  animation: aviso-entrar 0.35s cubic-bezier(0.22, 0.7, 0.2, 1);
+}
+.aviso--exito  { --color: #1f9d6b; --fondo: #effaf5; --borde: rgba(31, 157, 107, 0.35); }
+.aviso--error  { --color: #c23b3b; --fondo: #fdf2f2; --borde: rgba(194, 59, 59, 0.35); }
+.aviso--alerta { --color: var(--sg-amarillo); --fondo: #fffaea; --borde: rgba(214, 167, 20, 0.45); --glifo: var(--sg-negro); }
+.aviso--info   { --color: #2f6db5; --fondo: #f0f5fc; --borde: rgba(47, 109, 181, 0.3); }
+
+/* Círculo de color con el glifo */
+.aviso__icono {
+  display: flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--color); color: var(--glifo);
+}
+.aviso__icono app-icono { width: 18px; height: 18px; }
+
+.aviso__texto { min-width: 0; padding-top: 1px; }
+.aviso__texto strong {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14px; font-weight: 700; color: var(--sg-negro);
+}
+.aviso__texto p { margin: 2px 0 0; font-size: 14px; line-height: 1.4; color: #4a4a48; overflow-wrap: anywhere; }
+
+/* Contador cuando el mismo aviso se repite */
+.aviso__veces {
+  padding: 1px 7px; border-radius: 10px;
+  background: var(--color); color: var(--glifo);
+  font-size: 11px; font-weight: 700;
+  animation: aviso-latido 0.35s ease;
+}
+
+.aviso__cerrar {
+  display: inline-flex; padding: 4px; border: 0; border-radius: 6px;
+  background: transparent; color: var(--sg-gris); cursor: pointer;
+  transition: background var(--sg-transicion), color var(--sg-transicion);
+}
+.aviso__cerrar:hover { background: rgba(22, 22, 22, 0.06); color: var(--sg-negro); }
+.aviso__cerrar app-icono { width: 18px; height: 18px; }
+
+/* Barrita de tiempo: se vacía en lo que dura el aviso; con el mouse encima se detiene */
+.aviso__tiempo {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
+  background: var(--color); transform-origin: left;
+  animation: aviso-tiempo var(--duracion, 5000ms) linear forwards;
+}
+.aviso:hover .aviso__tiempo { animation-play-state: paused; }
+
+.aviso--saliendo { animation: aviso-salir 0.22s ease forwards; pointer-events: none; }
+
+@keyframes aviso-entrar {
+  from { opacity: 0; transform: translateX(calc(100% + 24px)); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes aviso-salir {
+  to { opacity: 0; transform: translateX(40px) scale(0.98); }
+}
+@keyframes aviso-tiempo {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+@keyframes aviso-latido {
+  50% { transform: scale(1.25); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aviso, .aviso--saliendo, .aviso__veces { animation-duration: 0.01ms; }
 }
 
 /* ---------- Contenido ---------- */
@@ -120,7 +240,9 @@
   .tabs a.activo { color: var(--sg-negro); }
   .tabs a.activo .tabs__icono { background: var(--sg-amarillo); }
   .tabs a.activo .tabs__texto { text-shadow: 0 0 0.5px currentColor; }
+
   .contenido { padding-bottom: 68px; }
+  .avisos { top: 76px; right: 16px; }
 }
 
 /* Celular: si hay más de 5 opciones se quitan los textos y caben todos los íconos sin deslizar */
@@ -129,4 +251,11 @@
   .tabs--compacta a { flex: 1 1 0; min-width: 0; }
   .tabs--compacta .tabs__texto { display: none; }
   .tabs--compacta .tabs__icono { width: 44px; height: 34px; border-radius: 17px; }
+
+  /* En celular los avisos ocupan todo el ancho y bajan desde arriba */
+  .avisos { left: 12px; right: 12px; width: auto; }
+  @keyframes aviso-entrar {
+    from { opacity: 0; transform: translateY(-16px); }
+    to   { opacity: 1; transform: none; }
+  }
 }
