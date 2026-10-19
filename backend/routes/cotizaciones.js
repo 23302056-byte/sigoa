@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { eventos } = require('../notificaciones');
 
 const estadosPermitidos = ['Borrador', 'Enviada', 'Aceptada', 'Rechazada', 'Vencida'];
 
@@ -126,6 +127,7 @@ router.post('/', async (req, res) => {
             );
         }
         await conexion.commit();
+        if ((estado || 'Borrador') === 'Enviada') eventos.cotizacionEnviada(resultado.insertId);
         return res.status(201).json({ success: true, id: resultado.insertId, subtotal, iva, total, mensaje: 'Cotización creada correctamente' });
     } catch (error) {
         if (conexion) await conexion.rollback();
@@ -230,6 +232,8 @@ router.put('/:id', async (req, res) => {
         }
 
         await conexion.commit();
+        // Se avisa al cliente solo cuando pasa a "Enviada" (no en cada edición)
+        if (estado === 'Enviada' && existe[0].estado !== 'Enviada') eventos.cotizacionEnviada(idCotizacion);
         return res.json({ success: true, mensaje: 'Cotización actualizada correctamente' });
     } catch (error) {
         if (conexion) await conexion.rollback();

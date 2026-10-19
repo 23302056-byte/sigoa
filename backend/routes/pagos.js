@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { eventos } = require('../notificaciones');
 
 const metodos = ['Efectivo', 'Transferencia', 'Tarjeta', 'Otro'];
 const estados = ['Pendiente', 'Pagado', 'Cancelado'];
@@ -38,6 +39,7 @@ router.post('/', (req, res) => {
     if (!valores) return;
     db.query('INSERT INTO pagos (id_proyecto, fecha, concepto, monto, metodo_pago, referencia, estado, observaciones) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', valores, (error, result) => {
         if (error) return res.status(500).json({ success: false, mensaje: 'No se pudo registrar el pago' });
+        if (req.body.estado === 'Pagado') eventos.pagoRegistrado(result.insertId);
         res.status(201).json({ success: true, id: result.insertId, mensaje: 'Pago registrado' });
     });
 });
@@ -45,6 +47,9 @@ router.post('/', (req, res) => {
 router.put('/:id', (req, res) => {
     const valores = validar(req.body, res);
     if (!valores) return;
+    // Se lee el estado anterior: solo se avisa al cliente cuando el pago pasa a "Pagado"
+    db.query('SELECT estado FROM pagos WHERE id_pago=?', [req.params.id], (errorAntes, filasAntes) => {
+    const estadoAntes = filasAntes?.[0]?.estado;
     db.query('UPDATE pagos SET id_proyecto=?, fecha=?, concepto=?, monto=?, metodo_pago=?, referencia=?, estado=?, observaciones=? WHERE id_pago=?', [...valores, req.params.id], (error, result) => {
         if (error) return res.status(500).json({ success: false, mensaje: 'No se pudo actualizar el pago' });
         if (!result.affectedRows) return db.query('SELECT id_pago FROM pagos WHERE id_pago=?', [req.params.id], (lookupError, rows) => {
@@ -52,7 +57,9 @@ router.put('/:id', (req, res) => {
             if (!rows.length) return res.status(404).json({ success: false, mensaje: 'Pago no encontrado' });
             res.json({ success: true, mensaje: 'Pago actualizado' });
         });
+        if (req.body.estado === 'Pagado' && estadoAntes !== 'Pagado') eventos.pagoRegistrado(Number(req.params.id));
         res.json({ success: true, mensaje: 'Pago actualizado' });
+    });
     });
 });
 

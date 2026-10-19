@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
+const { eventos } = require('../notificaciones');
 
 // Proyectos que todavía pueden vincularse a una obra (o el de la obra editada).
 router.get('/opciones', (req, res) => {
@@ -111,6 +112,10 @@ router.put('/:id', (req, res) => {
         fecha_inicio || null, fecha_fin_estimada || null, fecha_fin_real || null,
         avance, req.params.id
     ];
+    // Se leen el avance y estado anteriores para avisar al cliente si cambiaron
+    db.query('SELECT porcentaje_avance, estado FROM obras WHERE id_obra = ?', [req.params.id], (errorAntes, filasAntes) => {
+    const antes = filasAntes?.[0];
+
     db.query(sql, valores, (error, resultado) => {
         if (error) {
             console.error('Error al actualizar obra:', error);
@@ -127,7 +132,9 @@ router.put('/:id', (req, res) => {
                 return res.json({ success: true, mensaje: 'La obra ya tenía esos datos' });
             });
         }
+        eventos.obraActualizada(Number(req.params.id), antes);
         return res.json({ success: true, mensaje: 'Obra actualizada correctamente' });
+    });
     });
 });
 

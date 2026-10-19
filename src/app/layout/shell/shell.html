@@ -24,14 +24,84 @@
         <app-icono [nombre]="conexion.enLinea() ? 'wifi' : 'wifi-off'" />
       </span>
 
-      <button type="button" class="icono-btn" aria-label="Notificaciones">
-        <app-icono nombre="campana" />
-        <span class="icono-btn__punto"></span>
-      </button>
+      <!-- ============ CAMPANITA: historial de notificaciones ============ -->
+      <div class="notis" #campana>
+        <button type="button" class="icono-btn" [class.icono-btn--abierto]="notisAbierto()" (click)="alternarNotis()"
+                [attr.aria-label]="notis.noLeidas() ? 'Notificaciones, ' + notis.noLeidas() + ' sin leer' : 'Notificaciones'"
+                aria-haspopup="dialog" [attr.aria-expanded]="notisAbierto()">
+          <app-icono nombre="campana" />
+          @if (notis.noLeidas()) {
+            <span class="icono-btn__contador">{{ notis.noLeidas() > 9 ? '9+' : notis.noLeidas() }}</span>
+          } @else if (notis.permiso() === 'pendiente') {
+            <!-- Punto amarillo: todavía no activa las notificaciones -->
+            <span class="icono-btn__punto"></span>
+          }
+        </button>
+
+        <div class="notis__panel" [class.notis__panel--abierto]="notisAbierto()" [inert]="!notisAbierto()"
+             role="dialog" aria-label="Notificaciones">
+          <header class="notis__cabecera">
+            <div>
+              <strong>Notificaciones</strong>
+              @if (notis.noLeidas()) { <small>{{ notis.noLeidas() }} sin leer</small> }
+            </div>
+            @if (notis.noLeidas()) {
+              <button type="button" class="notis__enlace" (click)="notis.marcarTodas()">Marcar todas como leídas</button>
+            }
+          </header>
+
+          @switch (notis.permiso()) {
+            @case ('pendiente') {
+              <div class="notis__activar">
+                <span class="notis__activar-icono"><app-icono nombre="campana" /></span>
+                <div>
+                  <strong>Activa las notificaciones</strong>
+                  <p>{{ textoActivar() }}</p>
+                  <button type="button" class="sg-btn sg-btn--chico" (click)="notis.activar()" [disabled]="notis.activando()">
+                    {{ notis.activando() ? 'Activando…' : 'Activar' }}
+                  </button>
+                </div>
+              </div>
+            }
+            @case ('bloqueadas') {
+              <p class="notis__nota">
+                Las notificaciones están bloqueadas en este navegador. Para recibirlas, toca el candado junto a la
+                dirección de la página → <strong>Notificaciones</strong> → <strong>Permitir</strong>.
+              </p>
+            }
+            @case ('no-soportado') {
+              <p class="notis__nota">
+                Este navegador no puede mostrar notificaciones. En iPhone, primero instala SIGOA en tu pantalla de inicio.
+              </p>
+            }
+          }
+
+          <ul class="notis__lista">
+            @for (n of notis.lista(); track n.id) {
+              <li>
+                <button type="button" class="noti" [class.noti--nueva]="!n.leida" (click)="abrirNotificacion(n)">
+                  <span class="noti__icono noti__icono--{{ colorDe(n.tipo) }}"><app-icono [nombre]="iconoDe(n.tipo)" /></span>
+                  <span class="noti__texto">
+                    <strong>{{ n.titulo }}</strong>
+                    <span>{{ n.mensaje }}</span>
+                    <small>{{ hace(n.fecha) }}</small>
+                  </span>
+                  @if (!n.leida) { <span class="noti__punto" aria-label="Sin leer"></span> }
+                </button>
+              </li>
+            } @empty {
+              <li class="notis__vacio">
+                <app-icono nombre="campana" />
+                <p>No tienes notificaciones por ahora.<br>Aquí aparecerá todo lo importante.</p>
+              </li>
+            }
+          </ul>
+        </div>
+      </div>
 
       <div class="perfil" #perfil>
         <button type="button" class="avatar" [class.avatar--abierto]="perfilAbierto()"
-                (click)="perfilAbierto.set(!perfilAbierto())"
+                (click)="alternarPerfil()"
                 aria-label="Menú de perfil" aria-haspopup="menu" [attr.aria-expanded]="perfilAbierto()">
           {{ inicial() }}
         </button>

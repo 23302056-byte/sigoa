@@ -11,7 +11,8 @@ const pagosRoutes = require('./routes/pagos');
 const evidenciasRoutes = require('./routes/evidencias');
 const usuariosRoutes = require('./routes/usuarios');
 const clienteRoutes = require('./routes/cliente');
-
+const notificacionesRoutes = require('./routes/notificaciones'); // ← NUEVO
+const notificaciones = require('./notificaciones'); // ← NUEVO
 const path = require('path');
 
 const app = express();
@@ -32,6 +33,7 @@ app.use('/api/routes/pagos', pagosRoutes);
 app.use('/api/routes/evidencias', evidenciasRoutes);
 app.use('/api/routes/usuarios', usuariosRoutes);
 app.use('/api/routes/cliente', clienteRoutes);
+app.use('/api/routes/notificaciones', notificacionesRoutes); // ← NUEVO
 
 app.get('/', (req, res) => {
     res.json({
@@ -43,6 +45,8 @@ const PORT = 3000;
 
 app.listen(PORT, () => {
     console.log(`Servidor ejecutándose en http://localhost:${PORT}`);
+    // Crea las tablas de notificaciones (si faltan) y arranca los recordatorios automáticos
+    notificaciones.iniciar(); // ← NUEVO
     console.log(
         'Ruta de resumen: http://localhost:3000/api/routes/admin/resumen'
     );

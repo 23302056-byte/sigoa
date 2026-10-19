@@ -42,3 +42,6 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# Notificaciones push: llaves privadas del servidor (cada equipo genera las suyas)
+backend/vapid-keys.json

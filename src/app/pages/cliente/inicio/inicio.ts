@@ -4,6 +4,7 @@ import { HttpClient } from '@angular/common/http';
 import { Icono } from '../../../shared/icono/icono';
 import { SafeUrlPipe } from '../../../shared/safe-url.pipe';
 import { ConexionService } from '../../../core/services/conexion.service';
+import { NotificacionesService } from '../../../core/services/notificaciones.service';
 import { hoyISO } from '../../../core/reglas/reglas-negocio';
 
 const API = 'http://localhost:3000/api/routes';
@@ -121,6 +122,7 @@ export class InicioCliente implements OnDestroy {
   private readonly http = inject(HttpClient);
   private readonly esNavegador = isPlatformBrowser(inject(PLATFORM_ID));
   readonly conexion = inject(ConexionService);
+  private readonly notis = inject(NotificacionesService);
 
   // ---------- Estado de la pantalla ----------
   readonly cargando = signal(true);
@@ -220,6 +222,15 @@ export class InicioCliente implements OnDestroy {
       const enLinea = this.conexion.enLinea();
       untracked(() => (enLinea ? this.consultarServidor() : this.cargarCopia()));
     });
+
+    // Llegó una notificación nueva (avance, fotos, pago, cotización…):
+    // el portal se actualiza solo, sin parpadear ni recargar la página.
+    let primeraVez = true;
+    effect(() => {
+      this.notis.cambios();
+      if (primeraVez) { primeraVez = false; return; }
+      untracked(() => { if (this.conexion.enLinea()) this.consultarServidor(true); });
+    });
   }
 
   ngOnDestroy(): void {
@@ -234,14 +245,17 @@ export class InicioCliente implements OnDestroy {
     this.conexion.enLinea() ? this.consultarServidor() : this.cargarCopia();
   }
 
-  private consultarServidor(): void {
+  /** `silencioso`: actualiza en segundo plano (sin el efecto de "cargando") */
+  private consultarServidor(silencioso = false): void {
     if (!this.idUsuario) {
       this.error.set('No se encontró tu sesión. Vuelve a iniciar sesión.');
       this.cargando.set(false);
       return;
     }
-    this.cargando.set(true);
-    this.error.set('');
+    if (!silencioso) {
+      this.cargando.set(true);
+      this.error.set('');
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.http.get<any>(`${API}/cliente/portal/${this.idUsuario}`).subscribe({
@@ -256,6 +270,7 @@ export class InicioCliente implements OnDestroy {
         this.guardarCopia(datos);
       },
       error: (e) => {
+        if (silencioso) return; // si falla una actualización en segundo plano, se queda lo que ya se ve
         // 404 = cuenta sin cliente ligado: no tiene caso buscar copia
         if (e.status === 404) {
           this.error.set(e.error?.mensaje || 'Tu cuenta no está ligada a un cliente.');

@@ -4,6 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const router = express.Router();
 const db = require('../db');
+const { eventos } = require('../notificaciones');
 
 const carpeta = path.join(__dirname, '..', 'uploads', 'evidencias');
 const tiposMime = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'video/mp4': '.mp4', 'application/pdf': '.pdf' };
@@ -53,6 +54,7 @@ router.post('/', async (req, res) => {
                 console.error('Error registrando evidencia:', error);
                 return res.status(500).json({ success: false, mensaje: 'No se pudo registrar la evidencia' });
             }
+            eventos.evidenciaSubida(Number(id_obra), tipo);
             res.status(201).json({ success: true, id: result.insertId, mensaje: 'Evidencia subida correctamente' });
         });
 });
