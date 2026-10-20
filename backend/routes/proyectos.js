@@ -1,8 +1,8 @@
-
 const express = require('express');
 const router = express.Router();
 
 const db = require('../db');
+const { eventos } = require('../notificaciones');
 
 function agregarObrasAProyectos(proyectos, callback) {
     if (!proyectos.length) return callback(null, proyectos);
@@ -140,6 +140,7 @@ router.post('/', (req, res) => {
             if (error.code === 'ER_NO_REFERENCED_ROW_2') return res.status(400).json({ success: false, mensaje: 'El cliente o arquitecto seleccionado no existe' });
             return res.status(500).json({ success: false, mensaje: 'No se pudo crear el proyecto' });
         }
+        if (id_arquitecto) eventos.proyectoAsignado(result.insertId, Number(id_arquitecto));
         res.status(201).json({ success: true, id: result.insertId, mensaje: 'Proyecto creado correctamente' });
     });
 });
@@ -292,6 +293,10 @@ router.put('/:id', (req, res) => {
         id
     ];
 
+    // Se lee el arquitecto anterior para saber si cambió (y avisarle al nuevo)
+    db.query('SELECT id_arquitecto FROM proyectos WHERE id_proyecto = ?', [id], (errorAntes, filasAntes) => {
+    const arquitectoAntes = filasAntes?.[0]?.id_arquitecto ?? null;
+
     db.query(sql, valores, (error, resultado) => {
 
         if (error) {
@@ -340,10 +345,16 @@ router.put('/:id', (req, res) => {
             });
         }
 
+        const arquitectoNuevo = id_arquitecto ? Number(id_arquitecto) : null;
+        if (arquitectoNuevo && arquitectoNuevo !== arquitectoAntes) {
+            eventos.proyectoAsignado(Number(id), arquitectoNuevo);
+        }
+
         return res.json({
             success: true,
             mensaje: 'Proyecto actualizado correctamente'
         });
+    });
     });
 });
 

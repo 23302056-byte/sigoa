@@ -1,57 +1,189 @@
-<app-arquitecto-navbar></app-arquitecto-navbar>
+<section class="inicio">
 
-<main class="contenedor" id="inicio">
-  <section class="bienvenida">
-    <div>
-      <p class="eyebrow">ESPACIO DE TRABAJO</p>
-      <h1>Hola, {{ usuario.nombre || 'arquitecto' }}</h1>
-      <p class="subtitulo">Aquí puedes consultar tus proyectos y revisar el avance de cada obra.</p>
-    </div>
-    <div class="resumen">
-      <div class="resumen-item"><strong>{{ proyectos.length }}</strong><span>Proyectos asignados</span></div>
-      <div class="separador"></div>
-      <div class="resumen-item"><strong>{{ avancePromedio }}%</strong><span>Avance promedio</span></div>
-    </div>
-  </section>
-
-  <section class="seccion-proyectos" id="proyectos">
-    <div class="encabezado-lista">
-      <div><h2>Mis proyectos</h2><p>Proyectos asignados a tu cuenta</p></div>
-      <label class="buscador"><span aria-hidden="true">⌕</span><input type="search" placeholder="Buscar proyecto..." [(ngModel)]="busqueda" (input)="buscar()"></label>
+  <!-- ============ ENCABEZADO ============ -->
+  <header class="cabecera">
+    <div class="cabecera__texto">
+      <p class="sg-label"><span class="punto"></span>{{ fechaHoy }} · Arquitecto</p>
+      <h1>{{ saludo }}, <span class="resaltado">{{ nombre() }}</span></h1>
+      <p class="cabecera__sub">Así van hoy los proyectos y las obras a tu cargo.</p>
     </div>
 
-    <div class="estado-carga" *ngIf="cargando"><span class="spinner"></span><p>Cargando tus proyectos...</p></div>
-    <div class="mensaje error" *ngIf="!cargando && error">{{ error }} <button type="button" (click)="cargarProyectos()">Reintentar</button></div>
-    <div class="mensaje" *ngIf="!cargando && !error && proyectos.length === 0">Aún no tienes proyectos asignados.</div>
-    <div class="mensaje" *ngIf="!cargando && !error && proyectos.length > 0 && proyectosFiltrados.length === 0">No hay proyectos que coincidan con la búsqueda.</div>
+    <!-- Cuadro de rótulo, como el de una lámina de planos -->
+    <dl class="rotulo">
+      <div><dt class="sg-label">Proyectos</dt><dd>{{ dosDigitos(indicadores().proyectos) }}</dd></div>
+      <div><dt class="sg-label">Obras activas</dt><dd>{{ dosDigitos(indicadores().enConstruccion) }}</dd></div>
+      <div><dt class="sg-label">Hoja</dt><dd>B-01</dd></div>
+    </dl>
+  </header>
 
-    <span id="obras" class="ancla-obras"></span>
-    <div class="rejilla" *ngIf="!cargando && !error">
-      <article class="tarjeta" *ngFor="let proyecto of proyectosFiltrados">
-        <div class="tarjeta-cabecera">
-          <span class="etiqueta-estado" [ngClass]="{'completado': proyecto.estado === 'Completado', 'proceso': proyecto.estado === 'En proceso'}">{{ proyecto.estado }}</span>
-          <span class="folio">PROYECTO #{{ proyecto.id }}</span>
-        </div>
-        <h3>{{ proyecto.nombre }}</h3>
-        <p class="cliente">Cliente: <strong>{{ proyecto.cliente || 'Sin cliente indicado' }}</strong></p>
-        <p class="ubicacion" *ngIf="proyecto.ubicacion">⌖ {{ proyecto.ubicacion }}</p>
-        <div class="avance-info"><span>Avance del proyecto</span><strong>{{ proyecto.porcentaje_avance || 0 }}%</strong></div>
-        <div class="barra-avance"><span [style.width.%]="proyecto.porcentaje_avance || 0"></span></div>
-        <div class="fechas">
-          <span>Inicio <strong>{{ proyecto.fecha_inicio ? (proyecto.fecha_inicio | date:'dd/MM/yyyy') : 'Pendiente' }}</strong></span>
-          <span>Fin estimado <strong>{{ proyecto.fecha_fin ? (proyecto.fecha_fin | date:'dd/MM/yyyy') : 'Sin fecha' }}</strong></span>
-        </div>
+  @if (desdeCopia() && !cargando()) {
+    <p class="aviso">
+      <app-icono nombre="wifi-off" />
+      Sin conexión · Mostrando datos guardados el {{ momentoCopia() }}
+    </p>
+  }
 
-        <details class="obras" *ngIf="proyecto.obras?.length; else sinObras">
-          <summary><span>Obras relacionadas</span><span class="contador">{{ proyecto.obras.length }}</span></summary>
-          <div class="obra" *ngFor="let obra of proyecto.obras">
-            <div class="obra-titulo"><strong>{{ obra.nombre }}</strong><span>{{ obra.estado }}</span></div>
-            <div class="barra-avance barra-obra"><span [style.width.%]="obra.porcentaje_avance || 0"></span></div>
-            <small>{{ obra.porcentaje_avance || 0 }}% de avance</small>
+  @if (error()) {
+    <div class="sg-alerta error">
+      {{ error() }}
+      <button type="button" class="sg-btn sg-btn--contorno" (click)="recargar()">Reintentar</button>
+    </div>
+  }
+
+  <!-- ============ 01 · INDICADORES ============ -->
+  <h2 class="seccion"><span>01</span> Indicadores</h2>
+
+  <div class="indicadores" [class.cargando]="cargando()">
+    <a class="tarjeta" routerLink="/arquitecto/proyectos">
+      <div class="tarjeta__cabeza">
+        <span class="tarjeta__icono"><app-icono nombre="proyectos" /></span>
+        <span class="sg-label">Proyectos en curso</span>
+      </div>
+      <strong class="tarjeta__numero">{{ dosDigitos(indicadores().proyectosEnCurso) }}</strong>
+      <div class="sg-cota"><span class="sg-cota__relleno" [style.width.%]="proporcion(indicadores().proyectosEnCurso, indicadores().proyectos)"></span></div>
+      <small>{{ indicadores().proyectosEnCurso }} de {{ indicadores().proyectos }} proyectos asignados</small>
+    </a>
+
+    <a class="tarjeta" routerLink="/arquitecto/obras">
+      <div class="tarjeta__cabeza">
+        <span class="tarjeta__icono"><app-icono nombre="obras" /></span>
+        <span class="sg-label">Obras en construcción</span>
+      </div>
+      <strong class="tarjeta__numero">{{ dosDigitos(indicadores().enConstruccion) }}</strong>
+      <div class="sg-cota"><span class="sg-cota__relleno" [style.width.%]="proporcion(indicadores().enConstruccion, indicadores().obras)"></span></div>
+      <small>
+        {{ indicadores().enConstruccion }} de {{ indicadores().obras }} obras
+        @if (indicadores().pausadas) { · {{ indicadores().pausadas }} pausada(s) }
+      </small>
+    </a>
+
+    <a class="tarjeta" routerLink="/arquitecto/obras">
+      <div class="tarjeta__cabeza">
+        <span class="tarjeta__icono"><app-icono nombre="calendario" /></span>
+        <span class="sg-label">Entregas en 30 días</span>
+      </div>
+      <strong class="tarjeta__numero">{{ dosDigitos(indicadores().entregasProximas) }}</strong>
+      <small>
+        @if (indicadores().atrasadas) {
+          {{ indicadores().atrasadas }} obra(s) ya pasaron su fecha estimada
+        } @else {
+          Ninguna obra atrasada
+        }
+      </small>
+    </a>
+
+    <a class="tarjeta" routerLink="/arquitecto/obras">
+      <div class="tarjeta__cabeza">
+        <span class="tarjeta__icono"><app-icono nombre="avance" /></span>
+        <span class="sg-label">Obras finalizadas</span>
+      </div>
+      <strong class="tarjeta__numero">{{ dosDigitos(indicadores().finalizadas) }}</strong>
+      <small>entregadas al 100 %</small>
+      <span class="tarjeta__ir">Ver obras <app-icono nombre="flecha" /></span>
+    </a>
+  </div>
+
+  <!-- ============ 02 · AVANCE + 03 · FECHAS ============ -->
+  <div class="paneles" [class.cargando]="cargando()">
+
+    <section class="panel">
+      <h2 class="seccion"><span>02</span> Avance de mis obras</h2>
+
+      <div class="avance">
+        <div class="medidor">
+          <svg viewBox="0 0 200 200" aria-hidden="true">
+            @for (grado of marcas; track grado) {
+              <line x1="100" y1="6" x2="100" [attr.y2]="grado % 45 === 0 ? 18 : 12"
+                    [attr.transform]="'rotate(' + grado + ' 100 100)'" />
+            }
+            <circle class="medidor__base" cx="100" cy="100" r="72" />
+            <circle class="medidor__arco" cx="100" cy="100" r="72" pathLength="100"
+                    [attr.stroke-dasharray]="indicadores().avancePromedio + ' 100'" />
+          </svg>
+          <div class="medidor__valor">
+            <strong>{{ indicadores().avancePromedio.toFixed(0) }}<small>%</small></strong>
+            <span class="sg-label">Promedio</span>
           </div>
-        </details>
-        <ng-template #sinObras><div class="sin-obras">Este proyecto aún no tiene obras registradas.</div></ng-template>
-      </article>
-    </div>
-  </section>
-</main>
+        </div>
+
+        <div class="lista">
+          @for (obra of obrasEnCurso(); track obra.id) {
+            <div class="obra">
+              <div class="obra__datos">
+                <span class="sg-label">{{ codigo(obra.id) }} · {{ estadoTexto(obra.estado) }}</span>
+                <strong>{{ obra.nombre }}</strong>
+                <small>{{ obra.proyecto }}</small>
+              </div>
+              <span class="obra__porcentaje">{{ obra.porcentaje_avance }}%</span>
+              <div class="sg-cota obra__barra">
+                <span class="sg-cota__relleno" [style.width.%]="obra.porcentaje_avance"></span>
+              </div>
+            </div>
+          } @empty {
+            <div class="vacio">
+              <app-icono nombre="obras" />
+              <p>No tienes obras en curso.</p>
+              <a routerLink="/arquitecto/proyectos">Ver mis proyectos</a>
+            </div>
+          }
+        </div>
+      </div>
+
+      <a class="enlace" routerLink="/arquitecto/obras">Actualizar avance de mis obras <app-icono nombre="flecha" /></a>
+    </section>
+
+    <section class="panel">
+      <h2 class="seccion"><span>03</span> Próximas fechas</h2>
+
+      <ol class="linea-tiempo">
+        @for (f of proximasFechas(); track f.codigo + f.evento) {
+          <li class="evento">
+            <div class="evento__fecha">
+              <strong>{{ dia(f.fecha) }}</strong>
+              <span>{{ mes(f.fecha) }}</span>
+            </div>
+            <div class="evento__datos">
+              <span class="sg-label">{{ faltan(f.fecha) }}</span>
+              <strong>{{ f.evento }}</strong>
+              <small>{{ f.codigo }} · {{ f.obra }}</small>
+            </div>
+          </li>
+        } @empty {
+          <li class="vacio">
+            <app-icono nombre="calendario" />
+            <p>Sin fechas próximas en tus obras.</p>
+          </li>
+        }
+      </ol>
+    </section>
+  </div>
+
+  <!-- ============ 04 · ACCESOS RÁPIDOS ============ -->
+  <h2 class="seccion"><span>04</span> Accesos rápidos</h2>
+
+  <div class="accesos" [class.bloqueado]="!conexion.enLinea()">
+    <a class="acceso" routerLink="/arquitecto/obras">
+      <app-icono nombre="avance" />
+      <div><strong>Actualizar avance</strong><small>Registrar el porcentaje de una obra</small></div>
+      <app-icono nombre="mas" />
+    </a>
+    <a class="acceso" routerLink="/arquitecto/obras">
+      <app-icono nombre="fotos" />
+      <div><strong>Subir evidencias</strong><small>Fotos y videos del avance</small></div>
+      <app-icono nombre="mas" />
+    </a>
+    <a class="acceso" routerLink="/arquitecto/proyectos">
+      <app-icono nombre="proyectos" />
+      <div><strong>Mis proyectos</strong><small>Clientes, fechas y obras</small></div>
+      <app-icono nombre="flecha" />
+    </a>
+    <a class="acceso" routerLink="/arquitecto/obras">
+      <app-icono nombre="obras" />
+      <div><strong>Mis obras</strong><small>Estado y fechas de cada obra</small></div>
+      <app-icono nombre="flecha" />
+    </a>
+  </div>
+  @if (!conexion.enLinea()) {
+    <p class="nota">Las actualizaciones se habilitan al volver la conexión.</p>
+  }
+</section>

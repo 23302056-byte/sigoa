@@ -4,13 +4,13 @@ import {
   isDevMode
 } from '@angular/core';
 
-import { provideRouter } from '@angular/router';
+import { provideRouter, withInMemoryScrolling } from '@angular/router';
 
 import { provideHttpClient } from '@angular/common/http';
 
 import { routes } from './app.routes';
 
-import { provideClientHydration } from '@angular/platform-browser';
+import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
 
 import { provideServiceWorker } from '@angular/service-worker';
 
@@ -20,11 +20,14 @@ export const appConfig: ApplicationConfig = {
 
     provideBrowserGlobalErrorListeners(),
 
-    provideRouter(routes),
+    // Al cambiar de pantalla, la nueva empieza desde arriba
+    provideRouter(routes, withInMemoryScrolling({ scrollPositionRestoration: 'top' })),
 
     provideHttpClient(),
 
-    provideClientHydration(),
+    // Hidratación: Angular toma el HTML que mandó el servidor (SSR) sin volver a dibujarlo.
+    // Event Replay: si el usuario escribe o da clic antes de que cargue, esa acción no se pierde.
+    provideClientHydration(withEventReplay()),
 
     provideServiceWorker('ngsw-worker.js', {
       enabled: !isDevMode(),
