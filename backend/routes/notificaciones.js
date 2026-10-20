@@ -88,6 +88,29 @@ router.patch('/:id/leida', async (req, res) => {
   }
 });
 
+// Eliminar todas las notificaciones del usuario
+router.delete('/usuario/:id_usuario', async (req, res) => {
+  try {
+    const [resultado] = await sql.query('DELETE FROM notificaciones WHERE id_usuario = ?', [req.params.id_usuario]);
+    res.json({ success: true, eliminadas: resultado.affectedRows, mensaje: 'Notificaciones eliminadas' });
+  } catch (error) {
+    console.error('Error al eliminar notificaciones:', error.message);
+    res.status(500).json({ success: false, mensaje: 'No se pudieron eliminar las notificaciones' });
+  }
+});
+
+// Eliminar una notificación
+router.delete('/:id', async (req, res) => {
+  try {
+    const [resultado] = await sql.query('DELETE FROM notificaciones WHERE id_notificacion = ?', [req.params.id]);
+    if (!resultado.affectedRows) return res.status(404).json({ success: false, mensaje: 'Notificación no encontrada' });
+    res.json({ success: true, mensaje: 'Notificación eliminada' });
+  } catch (error) {
+    console.error('Error al eliminar notificación:', error.message);
+    res.status(500).json({ success: false, mensaje: 'No se pudo eliminar la notificación' });
+  }
+});
+
 // Historial de la campanita: las últimas 30 + cuántas faltan por leer
 router.get('/usuario/:id_usuario', async (req, res) => {
   try {

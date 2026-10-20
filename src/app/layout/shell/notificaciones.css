@@ -53,6 +53,11 @@
   text-decoration: underline; text-decoration-color: var(--sg-amarillo); text-decoration-thickness: 2px; text-underline-offset: 3px;
 }
 .notis__enlace:hover { color: var(--sg-gris); }
+.notis__enlace--peligro { color: #b03434; text-decoration-color: rgba(194, 59, 59, 0.45); }
+.notis__enlace--peligro:hover { color: #8a2222; }
+
+/* "Marcar todas" y "Eliminar todas", una debajo de la otra a la derecha */
+.notis__acciones { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
 
 /* Invitación a activar */
 .notis__activar {
@@ -69,6 +74,23 @@
   margin: 12px; padding: 12px 14px; border-radius: 8px;
   background: rgba(22, 22, 22, 0.04); font-size: 13px; line-height: 1.45; color: #4a4a48;
 }
+
+/* Lista: cada fila tiene la notificación y su botecito para borrarla */
+.noti-fila { position: relative; }
+.noti-fila--saliendo { animation: notis-salir 0.22s ease forwards; pointer-events: none; }
+@keyframes notis-salir { to { opacity: 0; transform: translateX(40px); } }
+
+.noti__borrar {
+  position: absolute; right: 8px; bottom: 10px;
+  display: inline-flex; padding: 6px; border: 0; border-radius: 6px;
+  background: transparent; color: var(--sg-gris); cursor: pointer;
+  opacity: 0; transition: opacity var(--sg-transicion), background var(--sg-transicion), color var(--sg-transicion);
+}
+.noti__borrar app-icono { width: 18px; height: 18px; }
+.noti-fila:hover .noti__borrar, .noti__borrar:focus-visible { opacity: 1; }
+.noti__borrar:hover { background: rgba(194, 59, 59, 0.1); color: #b03434; }
+/* En celular no hay "hover": el botecito se ve siempre */
+@media (hover: none) { .noti__borrar { opacity: 0.7; } }
 
 /* Lista */
 .notis__lista { list-style: none; margin: 0; padding: 0; overflow-y: auto; overscroll-behavior: contain; }
@@ -111,8 +133,6 @@
 }
 .notis__vacio app-icono { width: 30px; height: 30px; }
 .notis__vacio p { margin: 0; font-size: 13px; line-height: 1.5; }
-
-.notis__pie { padding: 12px 16px; border-top: 1px solid var(--sg-linea); text-align: center; }
 
 @media (prefers-reduced-motion: reduce) {
   .notis__panel, .icono-btn__punto, .icono-btn__contador { transition: none !important; animation: none !important; }

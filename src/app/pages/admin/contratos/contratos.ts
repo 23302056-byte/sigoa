@@ -7,6 +7,7 @@ import { catchError, forkJoin, of } from 'rxjs';
 import { Icono } from '../../../shared/icono/icono';
 import { ConexionService } from '../../../core/services/conexion.service';
 import { AvisosService } from '../../../core/services/avisos.service';
+import { DocumentoService } from '../../../core/services/documento.service';
 import { ESTADOS_CONTRATO, hoyISO, motivoEstadoContrato, validarContrato } from '../../../core/reglas/reglas-negocio';
 
 const API = 'http://localhost:3000/api/routes';
@@ -113,6 +114,7 @@ export class Contratos implements OnDestroy {
   private readonly esNavegador = isPlatformBrowser(inject(PLATFORM_ID));
   readonly conexion = inject(ConexionService);
   private readonly avisos = inject(AvisosService);
+  private readonly documento = inject(DocumentoService);
 
   readonly estados = ESTADOS_CONTRATO;
   readonly filtros = ['Todos', ...ESTADOS_CONTRATO];
@@ -714,16 +716,8 @@ export class Contratos implements OnDestroy {
       <footer>SIGOA · Contrato ${e(c.numero_contrato)} · Generado el ${e(this.fecha(hoyISO()))}</footer>
       </body></html>`;
 
-    const ventana = window.open('', '_blank', 'width=900,height=700');
-    if (!ventana) return this.avisos.error('Permite las ventanas emergentes para generar el PDF.');
-    ventana.document.open();
-    ventana.document.write(documento);
-    ventana.document.close();
-    window.setTimeout(() => {
-      if (ventana.closed) return;
-      ventana.focus();
-      ventana.print();
-    }, 600);
+       // Vista previa dentro de la app (sin ventana emergente que congele la página)
+    this.documento.abrir(`Contrato ${c.numero_contrato}`, documento); 
   }
 
   // =========================================================

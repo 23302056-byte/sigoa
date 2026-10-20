@@ -40,13 +40,18 @@
 
         <div class="notis__panel" [class.notis__panel--abierto]="notisAbierto()" [inert]="!notisAbierto()"
              role="dialog" aria-label="Notificaciones">
-          <header class="notis__cabecera">
+                    <header class="notis__cabecera">
             <div>
               <strong>Notificaciones</strong>
               @if (notis.noLeidas()) { <small>{{ notis.noLeidas() }} sin leer</small> }
             </div>
-            @if (notis.noLeidas()) {
-              <button type="button" class="notis__enlace" (click)="notis.marcarTodas()">Marcar todas como leídas</button>
+            @if (notis.lista().length) {
+              <div class="notis__acciones">
+                @if (notis.noLeidas()) {
+                  <button type="button" class="notis__enlace" (click)="notis.marcarTodas()">Marcar todas como leídas</button>
+                }
+                <button type="button" class="notis__enlace notis__enlace--peligro" (click)="eliminarTodas()">Eliminar todas</button>
+              </div>
             }
           </header>
 
@@ -76,9 +81,9 @@
             }
           }
 
-          <ul class="notis__lista">
+                   <ul class="notis__lista">
             @for (n of notis.lista(); track n.id) {
-              <li>
+              <li class="noti-fila" [class.noti-fila--saliendo]="borrando() === n.id">
                 <button type="button" class="noti" [class.noti--nueva]="!n.leida" (click)="abrirNotificacion(n)">
                   <span class="noti__icono noti__icono--{{ colorDe(n.tipo) }}"><app-icono [nombre]="iconoDe(n.tipo)" /></span>
                   <span class="noti__texto">
@@ -88,6 +93,10 @@
                   </span>
                   @if (!n.leida) { <span class="noti__punto" aria-label="Sin leer"></span> }
                 </button>
+                <button type="button" class="noti__borrar" (click)="eliminarNotificacion(n, $event)"
+                        aria-label="Eliminar notificación" title="Eliminar">
+                  <app-icono nombre="borrar" />
+                </button>
               </li>
             } @empty {
               <li class="notis__vacio">
@@ -96,6 +105,7 @@
               </li>
             }
           </ul>
+          
         </div>
       </div>
 
@@ -186,6 +196,28 @@
         <button type="button" class="sg-btn sg-btn--contorno sg-btn--chico" (click)="confirmacion.responder(false)">Cancelar</button>
         <button type="button" class="sg-btn sg-btn--chico" [class.sg-btn--peligro]="confirmacion.peligro"
                 (click)="confirmacion.responder(true)">{{ confirmacion.textoAceptar }}</button>
+      </div>
+    </div>
+  }
+
+    <!-- ============ VISTA PREVIA DE DOCUMENTOS (recibo, cotización, contrato) ============ -->
+  <!-- Se abre centrada dentro de la app, al tamaño de la pantalla -->
+  @if (documento.actual(); as doc) {
+    <div class="sg-velo sg-velo--documento" (click)="documento.cerrar()"></div>
+    <div class="documento" role="dialog" aria-modal="true" [attr.aria-label]="doc.titulo">
+      <div class="documento__cabecera">
+        <div><span class="sg-label">Vista previa</span><h2>{{ doc.titulo }}</h2></div>
+        <button type="button" class="sg-icono-btn" (click)="documento.cerrar()" aria-label="Cerrar vista previa">
+          <app-icono nombre="cerrar" />
+        </button>
+      </div>
+      <iframe #marco class="documento__marco" [srcdoc]="documentoHtml()" [title]="doc.titulo"></iframe>
+      <div class="documento__pie">
+        <small>En el diálogo de impresión elige «Guardar como PDF».</small>
+        <button type="button" class="sg-btn sg-btn--contorno sg-btn--chico" (click)="documento.cerrar()">Cerrar</button>
+        <button type="button" class="sg-btn sg-btn--chico" (click)="imprimirDocumento()">
+          <app-icono nombre="descargar" /> Imprimir / PDF
+        </button>
       </div>
     </div>
   }

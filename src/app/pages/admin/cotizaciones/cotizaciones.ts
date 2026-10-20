@@ -6,6 +6,8 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Icono } from '../../../shared/icono/icono';
 import { ConexionService } from '../../../core/services/conexion.service';
 import { AvisosService } from '../../../core/services/avisos.service';
+import { DocumentoService } from '../../../core/services/documento.service';
+
 import {
   ESTADOS_COTIZACION, centavos, conceptosBloqueados, hoyISO, motivoEstadoCotizacion, validarCotizacion
 } from '../../../core/reglas/reglas-negocio';
@@ -109,6 +111,7 @@ export class Cotizaciones implements OnDestroy {
   private readonly esNavegador = isPlatformBrowser(inject(PLATFORM_ID));
   readonly conexion = inject(ConexionService);
   private readonly avisos = inject(AvisosService);
+       private readonly documento = inject(DocumentoService);
 
   readonly estados = ESTADOS_COTIZACION;
   readonly filtros = ['Todos', ...ESTADOS_COTIZACION];
@@ -707,17 +710,8 @@ export class Cotizaciones implements OnDestroy {
       <footer>Precios en pesos mexicanos (MXN). Esta cotización es válida hasta la fecha indicada.</footer>
       </body></html>`;
 
-    const ventana = window.open('', '_blank', 'width=900,height=700');
-    if (!ventana) return this.avisos.error('Permite las ventanas emergentes para generar el PDF.');
-    ventana.document.open();
-    ventana.document.write(documento);
-    ventana.document.close();
-    // Espera a que cargue la tipografía antes de abrir el diálogo de impresión
-    window.setTimeout(() => {
-      if (ventana.closed) return;
-      ventana.focus();
-      ventana.print();
-    }, 600);
+    // Vista previa dentro de la app (sin ventana emergente que congele la página)
+    this.documento.abrir(`Cotización ${c.folio}`, documento);
   }
 
   // =========================================================

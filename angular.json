@@ -41,7 +41,7 @@
             "outputMode": "server",
 
             "security": {
-              "allowedHosts": []
+              "allowedHosts": ["localhost", "127.0.0.1", "*.trycloudflare.com"]
             },
 
             "ssr": {

@@ -133,8 +133,8 @@
 /* ---------- Botones extra ---------- */
 .sg-btn { text-decoration: none; white-space: nowrap; }
 .sg-btn--chico { height: 38px; padding: 0 16px; font-size: 12px; }
-.sg-btn--peligro { background: var(--sg-rojo); border-color: var(--sg-rojo); }
-.sg-btn--peligro:hover:not(:disabled) { background: #7d1d1d; }
+.sg-btn.sg-btn--peligro { background: var(--sg-rojo); border-color: var(--sg-rojo); color: var(--sg-blanco); }
+.sg-btn.sg-btn--peligro:hover:not(:disabled) { background: #7d1d1d; border-color: #7d1d1d; }
 .sg-icono-btn {
   display: inline-grid;
   place-items: center;
@@ -145,8 +145,8 @@
   color: var(--sg-negro);
   cursor: pointer;
 }
-.sg-icono-btn:hover { background: rgba(250, 200, 43, 0.18); }
-.sg-icono-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.sg-icono-btn:hover:not(:disabled) { background: rgba(250, 200, 43, 0.18); }
+.sg-icono-btn:disabled { cursor: not-allowed; }
 
 /* ---------- Menú de acciones (⋮) ---------- */
 .sg-menu { position: relative; }
@@ -176,7 +176,7 @@
   cursor: pointer;
 }
 .sg-menu__lista button:hover:not(:disabled) { background: rgba(250, 200, 43, 0.18); }
-.sg-menu__lista button:disabled { opacity: 0.4; cursor: not-allowed; }
+.sg-menu__lista button:disabled { cursor: not-allowed; }
 .sg-menu__lista hr { margin: 6px 0; border: 0; border-top: 1px solid var(--sg-suave); }
 .sg-menu__peligro { color: var(--sg-rojo) !important; }
 

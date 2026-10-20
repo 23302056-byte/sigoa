@@ -7,6 +7,8 @@ import { catchError, forkJoin, of } from 'rxjs';
 import { Icono } from '../../../shared/icono/icono';
 import { ConexionService } from '../../../core/services/conexion.service';
 import { AvisosService } from '../../../core/services/avisos.service';
+import { DocumentoService } from '../../../core/services/documento.service';
+
 import {
   ESTADOS_PAGO, METODOS_PAGO, centavos, hoyISO, pideReferencia, validarPago
 } from '../../../core/reglas/reglas-negocio';
@@ -96,6 +98,7 @@ export class Pagos implements OnDestroy {
   private readonly esNavegador = isPlatformBrowser(inject(PLATFORM_ID));
   readonly conexion = inject(ConexionService);
   private readonly avisos = inject(AvisosService);
+  private readonly documento = inject(DocumentoService);
 
   readonly estados = ESTADOS_PAGO;
   readonly metodos = METODOS_PAGO;
@@ -637,16 +640,8 @@ export class Pagos implements OnDestroy {
       <div class="firma">Recibió · Nombre y firma</div>
       </div></body></html>`;
 
-    const ventana = window.open('', '_blank', 'width=800,height=700');
-    if (!ventana) return this.avisos.error('Permite las ventanas emergentes para generar el recibo.');
-    ventana.document.open();
-    ventana.document.write(documento);
-    ventana.document.close();
-    window.setTimeout(() => {
-      if (ventana.closed) return;
-      ventana.focus();
-      ventana.print();
-    }, 600);
+        // Vista previa dentro de la app (sin ventana emergente que congele la página)
+    this.documento.abrir(`Recibo ${this.folio(p)}`, documento);
   }
 
   // =========================================================

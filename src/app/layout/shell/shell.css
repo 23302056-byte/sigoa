@@ -103,13 +103,17 @@
   .perfil__menu, .perfil__menu > *, .avatar { transition: none !important; }
 }
 
-/* Aviso sin conexión */
+/* Aviso sin conexión: se queda fijo debajo de la barra superior al hacer scroll */
 .aviso-offline {
+  position: sticky; top: 72px; z-index: 99;
   display: flex; align-items: center; justify-content: center; gap: 10px;
   padding: 10px var(--sg-margen);
-  background: rgba(250, 200, 43, 0.22); border-bottom: 2px solid var(--sg-amarillo);
+  background: #faefca; /* amarillo claro sólido: el contenido no se transparenta al pasar debajo */
+  border-bottom: 2px solid var(--sg-amarillo);
+  animation: aviso-offline-entrar 0.25s ease;
   font-family: var(--sg-mono); font-weight: 600; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase;
 }
+@keyframes aviso-offline-entrar { from { transform: translateY(-100%); opacity: 0; } to { transform: none; opacity: 1; } }
 
 /* ---------- Avisos (arriba a la derecha) ---------- */
 .avisos {
@@ -207,6 +211,7 @@
 
 @media (max-width: 1024px) {
   .barra { gap: 12px; height: 64px; }
+  .aviso-offline { top: 64px; }
   .barra__menu { display: none; }
 
   .tabs {

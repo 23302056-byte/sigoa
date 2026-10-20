@@ -7,7 +7,8 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "serve:ssr:sigoa": "node dist/sigoa/server/server.mjs"
+    "serve:ssr:sigoa": "node dist/sigoa/server/server.mjs",
+    "produccion": "ng build && node dist/sigoa/server/server.mjs"
   },
   "private": true,
   "packageManager": "npm@11.19.0",

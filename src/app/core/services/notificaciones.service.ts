@@ -172,6 +172,43 @@ export class NotificacionesService {
     this.http.patch(`${API}/notificaciones/usuario/${this.idUsuario}/leidas`, {}).subscribe({ error: () => {} });
   }
 
+    /** Borra una notificación del historial */
+  eliminar(n: Notificacion): void {
+    this.lista.update((lista) => lista.filter((x) => x.id !== n.id));
+    if (!n.leida) this.noLeidas.update((total) => Math.max(0, total - 1));
+    this.http.delete(`${API}/notificaciones/${n.id}`).subscribe({
+      error: () => {
+        this.avisos.error('No se pudo eliminar la notificación.');
+        this.cargar();
+      }
+    });
+  }
+
+  /** Borra todo el historial, después de confirmar */
+  async eliminarTodas(): Promise<void> {
+    const total = this.lista().length;
+    if (!this.idUsuario || !total) return;
+    const confirmado = await this.avisos.confirmar({
+      titulo: '¿Eliminar todas las notificaciones?',
+      mensaje: `Se borrarán ${total === 1 ? 'la notificación' : `las ${total} notificaciones`} de tu historial. Esta acción no se puede deshacer.`,
+      textoAceptar: 'Eliminar todas',
+      peligro: true
+    });
+    if (!confirmado) return;
+
+    const respaldo = { lista: this.lista(), noLeidas: this.noLeidas() };
+    this.lista.set([]);
+    this.noLeidas.set(0);
+    this.http.delete(`${API}/notificaciones/usuario/${this.idUsuario}`).subscribe({
+      next: () => this.avisos.exito('Se eliminaron todas las notificaciones.'),
+      error: () => {
+        this.lista.set(respaldo.lista);
+        this.noLeidas.set(respaldo.noLeidas);
+        this.avisos.error('No se pudieron eliminar las notificaciones.');
+      }
+    });
+  }
+
   /**
    * Bienvenida: llega UNA sola vez, justo al activar, y confirma que el
    * dispositivo ya recibe notificaciones (no hay botón para repetirla).

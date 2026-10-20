@@ -1,11 +1,13 @@
 import { Component, ElementRef, OnDestroy, OnInit, PLATFORM_ID, computed, inject, signal, viewChild } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
+import { DomSanitizer } from '@angular/platform-browser';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Subscription, filter } from 'rxjs';
 import { Icono } from '../../shared/icono/icono';
 import { ConexionService } from '../../core/services/conexion.service';
 import { PwaInstallService } from '../../core/services/pwa-install.service';
 import { AvisosService } from '../../core/services/avisos.service';
+import { DocumentoService } from '../../core/services/documento.service';
 import { Notificacion, NotificacionesService, TipoNotificacion, hace } from '../../core/services/notificaciones.service';
 import { MENUS, Rol } from './menus';
 
@@ -50,11 +52,11 @@ const TEXTO_ACTIVAR: Record<Rol, string> = {
   standalone: true,
   imports: [RouterOutlet, RouterLink, RouterLinkActive, Icono],
   templateUrl: './shell.html',
-  styleUrls: ['./shell.css', './notificaciones.css'],
+  styleUrls: ['./shell.css', './notificaciones.css', './documento.css'],
   // Clic en cualquier parte de la pantalla o tecla Esc: se cierran los menús
   host: {
     '(document:click)': 'clicEnDocumento($event)',
-    '(document:keydown.escape)': 'cerrarMenus()'
+    '(document:keydown.escape)': 'alPresionarEsc()'
   }
 })
 export class Shell implements OnInit, OnDestroy {
@@ -67,6 +69,8 @@ export class Shell implements OnInit, OnDestroy {
   readonly pwa = inject(PwaInstallService);
   readonly avisos = inject(AvisosService);
   readonly notis = inject(NotificacionesService);
+  readonly documento = inject(DocumentoService);
+  private readonly sanitizer = inject(DomSanitizer);
 
   readonly rol = signal<Rol>('admin');
   readonly config = computed(() => MENUS[this.rol()]);
@@ -143,6 +147,12 @@ export class Shell implements OnInit, OnDestroy {
     this.notisAbierto.update((abierto) => !abierto);
   }
 
+  /** Esc: primero cierra la vista previa del documento; si no hay, los menús */
+  alPresionarEsc(): void {
+    if (this.documento.actual()) this.documento.cerrar();
+    else this.cerrarMenus();
+  }
+
   cerrarMenus(): void {
     this.perfilAbierto.set(false);
     this.notisAbierto.set(false);
@@ -161,12 +171,46 @@ export class Shell implements OnInit, OnDestroy {
     this.notis.abrir(n);
   }
 
+  /** Notificación que se está yendo (para animar su salida antes de borrarla) */
+  readonly borrando = signal<number | null>(null);
+
+  eliminarNotificacion(n: Notificacion, evento: Event): void {
+    evento.stopPropagation();
+    this.borrando.set(n.id);
+    setTimeout(() => {
+      this.notis.eliminar(n);
+      this.borrando.set(null);
+    }, 220);
+  }
+
+  eliminarTodas(): void {
+    this.notisAbierto.set(false);
+    this.notis.eliminarTodas();
+  }
+
   iconoDe(tipo: TipoNotificacion): string {
     return TIPOS_NOTIFICACION[tipo]?.icono ?? 'campana';
   }
 
   colorDe(tipo: TipoNotificacion): string {
     return TIPOS_NOTIFICACION[tipo]?.color ?? 'negro';
+  }
+
+  // ---------- Vista previa de documentos (recibos, cotizaciones, contratos) ----------
+  private readonly marco = viewChild<ElementRef<HTMLIFrameElement>>('marco');
+
+  /** El HTML lo arma SIGOA (con los datos ya escapados), por eso se marca como seguro */
+  readonly documentoHtml = computed(() => {
+    const doc = this.documento.actual();
+    return doc ? this.sanitizer.bypassSecurityTrustHtml(doc.html) : null;
+  });
+
+  /** Imprime solo el documento; en el diálogo se elige «Guardar como PDF» */
+  imprimirDocumento(): void {
+    const ventana = this.marco()?.nativeElement.contentWindow;
+    if (!ventana) return;
+    ventana.focus();
+    ventana.print();
   }
 
   // ---------- Sesión ----------
